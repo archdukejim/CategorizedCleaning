@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+	<Operation Class="PTS.PatchOperationAddIfModPresent">
+	  <doesRequire>ludeon.rimworld.biotech</doesRequire>
+	  <xpath>Defs/ThingDef[defName="Mech_Cleansweeper"]/race/mechEnabledWorkTypes</xpath>
+	  <value>
+		<li>CleaningSterile</li>
+		<li>CleaningIndoors</li>
+	  </value>
+	</Operation>
+	<Operation Class="PTS.PatchOperationAddIfModPresent">
+	  <doesRequire>ludeon.rimworld.biotech</doesRequire>
+	  <xpath>Defs/ThingDef[defName="Mech_Cleansweeper"]/race</xpath>
+	  <value>
+        <mechWorkTypePriorities>
+          <CleaningSterile>1</CleaningSterile>
+          <CleaningIndoors>2</CleaningIndoors>
+        </mechWorkTypePriorities>
+	  </value>
+	</Operation>
+</Patch>
