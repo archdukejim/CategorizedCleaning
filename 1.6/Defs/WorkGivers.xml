@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+  <WorkGiverDef>
+    <defName>CategorizedCleaning_CleanFilth_Sterile</defName>
+    <label>clean filth in sterile rooms</label>
+    <giverClass>PeteTimesSix.CategorizedCleaning.WorkGiver_CleanFilth_Sterile</giverClass>
+    <workType>CleaningSterile</workType>
+    <verb>clean</verb>
+    <gerund>cleaning</gerund>
+    <priorityInType>7</priorityInType>
+    <requiredCapacities>
+      <li>Manipulation</li>
+    </requiredCapacities>
+  </WorkGiverDef>
+  
+  
+  <WorkGiverDef>
+    <defName>CategorizedCleaning_CleanFilth_Indoors</defName>
+    <label>clean filth indoors</label>
+    <giverClass>PeteTimesSix.CategorizedCleaning.WorkGiver_CleanFilth_Indoors</giverClass>
+    <workType>CleaningIndoors</workType>
+    <verb>clean</verb>
+    <gerund>cleaning</gerund>
+    <priorityInType>6</priorityInType>
+    <requiredCapacities>
+      <li>Manipulation</li>
+    </requiredCapacities>
+  </WorkGiverDef>
+  
+  <!--
+	Modify vanilla def instead for compat. reasons
+	
+  <WorkGiverDef>
+    <defName>CategorizedCleaning_CleanFilth_Outdoors</defName>
+    <label>clean filth outdoors</label>
+    <giverClass>PeteTimesSix.CategorizedCleaning.WorkGiver_CleanFilth_Outdoors</giverClass>
+    <workType>CleaningOutdoors</workType>
+    <verb>clean</verb>
+    <gerund>cleaning</gerund>
+    <priorityInType>4</priorityInType>
+    <requiredCapacities>
+      <li>Manipulation</li>
+    </requiredCapacities>
+  </WorkGiverDef>
+  -->
+ </Defs>

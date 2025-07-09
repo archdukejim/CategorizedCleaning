@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+ <WorkTypeDef>
+    <defName>CleaningSterile</defName>
+    <labelShort>mop</labelShort>
+    <pawnLabel>Cleaner</pawnLabel>
+    <gerundLabel>mopping up</gerundLabel>
+    <description>Clean up in kitchens, hospitals and laboratories.</description>
+    <verb>Clean</verb>
+    <naturalPriority>210</naturalPriority>
+    <alwaysStartActive>true</alwaysStartActive>
+    <requireCapableColonist>true</requireCapableColonist>
+    <workTags>
+      <li>ManualDumb</li>
+      <li>Cleaning</li>
+      <li>Commoner</li>
+      <li>AllWork</li>
+    </workTags>
+ </WorkTypeDef>
+  
+ <WorkTypeDef>
+    <defName>CleaningIndoors</defName>
+    <labelShort>sweep</labelShort>
+    <pawnLabel>Cleaner</pawnLabel>
+    <gerundLabel>sweeping up</gerundLabel>
+    <description>Clean up indoors.</description>
+    <verb>Clean</verb>
+    <naturalPriority>205</naturalPriority>
+    <alwaysStartActive>true</alwaysStartActive>
+    <requireCapableColonist>true</requireCapableColonist>
+    <workTags>
+      <li>ManualDumb</li>
+      <li>Cleaning</li>
+      <li>Commoner</li>
+      <li>AllWork</li>
+    </workTags>
+  </WorkTypeDef>
+</Defs>
+ 
