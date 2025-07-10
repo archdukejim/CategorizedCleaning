@@ -1,0 +1,8 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+	<CategorizedCleaning_ModTitle>Categorized Cleaning</CategorizedCleaning_ModTitle>
+	
+	<CC_Settings_SterileRooms>Rooms considered sterile</CC_Settings_SterileRooms>
+	<CC_Settings_RegularRooms>Rooms</CC_Settings_RegularRooms>
+	<CC_Settings_OutdoorRooms>Rooms considered outdoors</CC_Settings_OutdoorRooms>
+</LanguageData>
