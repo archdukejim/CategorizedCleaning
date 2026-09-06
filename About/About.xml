@@ -30,6 +30,6 @@ One for indoor cleaning
 One for a custom cleaning zone you paint yourself (Architect &gt; Zone)
 One for outdoor cleaning in the home area
 
-Each can be individually prioritized. The mod settings decide which auto-detected room types belong to which column, and you can pin a single room to a column by selecting a colonist and right-clicking inside the room.
+Each can be individually prioritized. A new "Cleaning" tab at the bottom of the screen lists every room on the map in one lane per column, placed automatically by room type (bedrooms are named after their owners); move a room between lanes to pin it to a column. The mod settings decide which room types land in which lane by default, and you can also pin a room by selecting a colonist and right-clicking inside it.
 	</description>
 </ModMetaData>
