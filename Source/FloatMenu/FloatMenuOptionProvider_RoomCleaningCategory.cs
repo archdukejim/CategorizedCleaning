@@ -1,14 +1,13 @@
 using RimWorld;
 using System.Collections.Generic;
-using System.Linq;
 using Verse;
 
 namespace PeteTimesSix.CategorizedCleaning
 {
     /// <summary>
-    /// Right-click inside an enclosed room (with a colonist selected) to pin that room to a cleaning column, or to
-    /// return it to automatic routing. A single entry that opens a submenu, so the vanilla order menu stays uncluttered.
-    /// Discovered automatically by FloatMenuMakerMap via reflection.
+    /// Right-click inside an enclosed room (with a colonist selected) to pin that room to a cleaning lane, or to
+    /// return it to automatic routing. One entry that opens a submenu, so the vanilla order menu stays uncluttered.
+    /// The Cleaning tab offers the same choices with more context.
     /// </summary>
     public class FloatMenuOptionProvider_RoomCleaningCategory : FloatMenuOptionProvider
     {
@@ -27,15 +26,14 @@ namespace PeteTimesSix.CategorizedCleaning
         protected override FloatMenuOption GetSingleOption(FloatMenuContext context)
         {
             var room = context.ClickedRoom;
-            var map = context.map;
-            var cache = map.GetComponent<FilthCache>();
-            var current = cache.OverrideFor(room);
-            var automatic = AutomaticCategoryFor(room);
-            string currentLabel = current != null ? current.LabelCap.ToString() : "CC_RoomOverride_AutoShort".Translate(automatic?.label ?? "-").ToString();
+            var cache = context.map.GetComponent<FilthCache>();
+            var pin = cache.PinFor(room);
+            var automatic = FilthCache.AutomaticLane(room);
+            string currentLabel = pin != null ? pin.lane.LabelCap.ToString() : "CC_RoomOverride_AutoShort".Translate(automatic?.label ?? "-").ToString();
 
             return new FloatMenuOption("CC_RoomOverride_Menu".Translate(currentLabel), delegate
             {
-                Find.WindowStack.Add(new FloatMenu(BuildSubmenu(room, cache, current, automatic)));
+                Find.WindowStack.Add(new FloatMenu(BuildSubmenu(room, cache, pin?.lane, automatic)));
             }, MenuOptionPriority.Low, delegate
             {
                 room.DrawFieldEdges();
@@ -44,40 +42,23 @@ namespace PeteTimesSix.CategorizedCleaning
 
         private static List<FloatMenuOption> BuildSubmenu(Room room, FilthCache cache, CleaningCategoryDef current, CleaningCategoryDef automatic)
         {
-            var options = new List<FloatMenuOption>();
-
-            string autoLabel = "CC_RoomOverride_Auto".Translate(automatic?.label ?? "-");
-            options.Add(new FloatMenuOption(autoLabel, current == null ? null : (System.Action)delegate
+            var options = new List<FloatMenuOption>
             {
-                cache.PaintRoom(room, null);
-            }));
+                new FloatMenuOption("CC_RoomOverride_Auto".Translate(automatic?.label ?? "-"), current == null ? null : (System.Action)delegate
+                {
+                    cache.PinRoom(room, null);
+                })
+            };
 
             foreach (var def in CleaningCategoryDef.All)
             {
                 var local = def;
-                string label = "CC_RoomOverride_Set".Translate(local.label);
-                options.Add(new FloatMenuOption(label, local == current ? null : (System.Action)delegate
+                options.Add(new FloatMenuOption("CC_RoomOverride_Set".Translate(local.label), local == current ? null : (System.Action)delegate
                 {
-                    cache.PaintRoom(room, local);
-                }, MenuOptionPriority.Default, delegate
-                {
-                    cache.GetArea(local)?.MarkForDraw();
+                    cache.PinRoom(room, local);
                 }));
             }
             return options;
-        }
-
-        /// <summary>Where the room's filth goes without an override: its room type's column, else the indoor default.</summary>
-        private static CleaningCategoryDef AutomaticCategoryFor(Room room)
-        {
-            var role = room.Role;
-            if (role != null && role != RoomRoleDefOf.None)
-            {
-                var byRole = CategorizedCleaning_Settings.CategoryForRole(role);
-                if (byRole != null)
-                    return byRole;
-            }
-            return room.PsychologicallyOutdoors ? CleaningCategoryDef.OutdoorDefault : CleaningCategoryDef.IndoorDefault;
         }
     }
 }

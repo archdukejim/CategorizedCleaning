@@ -9,16 +9,16 @@ using Verse.Sound;
 namespace PeteTimesSix.CategorizedCleaning
 {
     /// <summary>
-    /// Bottom-bar tab listing every enclosed room on the current map in one swim lane per cleaning column.
-    /// Rooms land in a lane automatically (room type defaults from the mod settings); moving a room with the
-    /// arrows or the right-click menu pins it to a lane, which is the same per-room override the right-click
-    /// menu on the map creates. Names come from the game's own room label, so bedrooms read "Kim's bedroom".
+    /// Bottom-bar tab: every enclosed room and every cleaning zone on the current map, in one swim lane per cleaning
+    /// lane. Rooms land in a lane automatically from the room-type defaults; moving one pins it. Entries in the Custom
+    /// lane expose their own filth kinds, priority (which Work column cleans them) and upkeep jobs.
     /// </summary>
     public class MainTabWindow_CleaningRooms : MainTabWindow
     {
-        private class RoomRow
+        private class Row
         {
             public Room room;
+            public Zone_Cleaning zone;
             public string name;
             public string typeLabel;
             public CleaningCategoryDef lane;
@@ -26,11 +26,16 @@ namespace PeteTimesSix.CategorizedCleaning
             public bool inHome;
             public int filthCount;
             public IntVec3 anchor;
+
+            public bool IsZone => zone != null;
+            public Map Map => zone?.Map ?? room?.Map;
+            public CustomCleaningConfig Custom(FilthCache cache) => zone != null ? zone.custom : cache.PinFor(room)?.custom;
         }
 
         private const float HintHeight = 40f;
         private const float LaneHeaderHeight = 32f;
         private const float RowHeight = 36f;
+        private const float CustomRowHeight = 96f;
         private const float ArrowSize = 24f;
         private const float LaneGap = 6f;
         private const float ScrollbarWidth = 16f;
@@ -38,14 +43,14 @@ namespace PeteTimesSix.CategorizedCleaning
 
         private static readonly Color Dim = new Color(1f, 1f, 1f, 0.55f);
 
-        /// <summary>Room under the mouse in the tab; drawn on the map by <see cref="HarmonyPatches.MapInterface_Update_Patches"/>.</summary>
+        /// <summary>Room under the mouse in the tab; outlined on the map by <see cref="HarmonyPatches.MapInterface_Update_Patches"/>.</summary>
         public static Room hoveredRoom;
 
-        private readonly List<RoomRow> rows = new List<RoomRow>();
+        private readonly List<Row> rows = new List<Row>();
         private Vector2[] scrollPositions = new Vector2[0];
         private int lastRefreshFrame = -1;
 
-        public override Vector2 RequestedTabSize => new Vector2(Mathf.Min(UI.screenWidth - 20f, 1100f), 640f);
+        public override Vector2 RequestedTabSize => new Vector2(Mathf.Min(UI.screenWidth - 20f, 1400f), 680f);
 
         public override void PreOpen()
         {
@@ -57,19 +62,6 @@ namespace PeteTimesSix.CategorizedCleaning
         {
             base.PostClose();
             hoveredRoom = null;
-        }
-
-        /// <summary>Where a room's filth goes without an override: its room type's column, else the indoor default.</summary>
-        public static CleaningCategoryDef AutomaticLane(Room room)
-        {
-            var role = room.Role;
-            if (role != null && role != RoomRoleDefOf.None)
-            {
-                var byRole = CategorizedCleaning_Settings.CategoryForRole(role);
-                if (byRole != null)
-                    return byRole;
-            }
-            return room.PsychologicallyOutdoors ? CleaningCategoryDef.OutdoorDefault : CleaningCategoryDef.IndoorDefault;
         }
 
         private void Refresh(bool force = false)
@@ -91,8 +83,8 @@ namespace PeteTimesSix.CategorizedCleaning
                     || room.PsychologicallyOutdoors || room.TouchesMapEdge)
                     continue;
 
-                var pinnedTo = cache.OverrideFor(room);
-                var lane = pinnedTo ?? AutomaticLane(room);
+                var pin = cache.PinFor(room);
+                var lane = pin?.lane ?? FilthCache.AutomaticLane(room);
                 if (lane == null)
                     continue;
 
@@ -106,27 +98,52 @@ namespace PeteTimesSix.CategorizedCleaning
                     }
                 }
 
-                rows.Add(new RoomRow
+                rows.Add(new Row
                 {
                     room = room,
                     name = room.GetRoomRoleLabel().CapitalizeFirst(),
                     typeLabel = room.Role?.LabelCap ?? "",
                     lane = lane,
-                    pinned = pinnedTo != null,
+                    pinned = pin != null,
                     inHome = inHome,
                     filthCount = room.ContainedThings<Filth>().Count(),
                     anchor = room.Cells.First(),
                 });
             }
 
+            foreach (var zone in map.zoneManager.AllZones)
+            {
+                if (!(zone is Zone_Cleaning cleaningZone) || cleaningZone.lane == null || cleaningZone.cells.Count == 0)
+                    continue;
+                int filth = 0;
+                foreach (var cell in cleaningZone.cells)
+                {
+                    var things = cell.GetThingList(map);
+                    for (int i = 0; i < things.Count; i++)
+                        if (things[i] is Filth)
+                            filth++;
+                }
+                rows.Add(new Row
+                {
+                    zone = cleaningZone,
+                    name = cleaningZone.label,
+                    typeLabel = "CC_Tab_ZoneType".Translate(),
+                    lane = cleaningZone.lane,
+                    pinned = true,
+                    inHome = true,
+                    filthCount = filth,
+                    anchor = cleaningZone.Position,
+                });
+            }
+
             // Several rooms often share a label ("Kitchen", "Storeroom"); number them in a stable map order.
-            foreach (var group in rows.GroupBy(r => r.name).Where(g => g.Count() > 1).ToList())
+            foreach (var group in rows.Where(r => !r.IsZone).GroupBy(r => r.name).Where(g => g.Count() > 1).ToList())
             {
                 int i = 1;
                 foreach (var row in group.OrderBy(r => r.anchor.z).ThenBy(r => r.anchor.x))
                     row.name = $"{row.name} {i++}";
             }
-            rows.SortBy(r => r.name);
+            rows.SortBy(r => r.IsZone ? 1 : 0, r => r.name);
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -164,6 +181,7 @@ namespace PeteTimesSix.CategorizedCleaning
         {
             var lane = lanes[laneIndex];
             var laneRows = rows.Where(r => r.lane == lane).ToList();
+            float rowHeight = lane.isCustom ? CustomRowHeight : RowHeight;
 
             Widgets.DrawMenuSection(rect);
 
@@ -175,29 +193,39 @@ namespace PeteTimesSix.CategorizedCleaning
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperLeft;
-            string workLabel = lane.WorkType != null ? lane.WorkType.labelShort.CapitalizeFirst() : "?";
-            TooltipHandler.TipRegion(headerRect, lane.description + "\n\n" + "CC_Tab_WorkColumn".Translate(workLabel));
+            string headerTip = lane.description;
+            if (lane.WorkType != null)
+                headerTip += "\n\n" + "CC_Tab_WorkColumn".Translate(lane.WorkType.labelShort.CapitalizeFirst());
+            if (lane.hasFilthKindFilter)
+                headerTip += "\n" + "CC_Tab_LaneKinds".Translate(CategorizedCleaning_Settings.KindsFor(lane).Select(k => k.label).ToCommaList());
+            TooltipHandler.TipRegion(headerRect, headerTip);
             Widgets.DrawLineHorizontal(rect.x + 4f, headerRect.yMax, rect.width - 8f);
 
             Rect listRect = new Rect(rect.x, headerRect.yMax + 2f, rect.width, rect.height - LaneHeaderHeight - 4f).ContractedBy(3f);
-            float contentHeight = laneRows.Count * RowHeight;
+            float contentHeight = laneRows.Count * rowHeight;
             Rect viewRect = new Rect(0f, 0f, listRect.width - (contentHeight > listRect.height ? ScrollbarWidth : 0f), contentHeight);
             Widgets.BeginScrollView(listRect, ref scrollPositions[laneIndex], viewRect);
             float y = 0f;
             foreach (var row in laneRows)
             {
-                DrawRow(new Rect(0f, y, viewRect.width, RowHeight), row, laneIndex, lanes);
-                y += RowHeight;
+                DrawRow(new Rect(0f, y, viewRect.width, rowHeight), row, laneIndex, lanes);
+                y += rowHeight;
             }
             Widgets.EndScrollView();
         }
 
-        private void DrawRow(Rect rect, RoomRow row, int laneIndex, List<CleaningCategoryDef> lanes)
+        private void DrawRow(Rect rect, Row row, int laneIndex, List<CleaningCategoryDef> lanes)
         {
+            var lane = lanes[laneIndex];
+            var cache = row.Map?.GetComponent<FilthCache>();
+            if (cache == null)
+                return;
+
             if (Mouse.IsOver(rect))
             {
                 Widgets.DrawHighlight(rect);
-                hoveredRoom = row.room;
+                if (!row.IsZone)
+                    hoveredRoom = row.room;
             }
 
             float buttonY = rect.y + (RowHeight - ArrowSize) / 2f;
@@ -211,7 +239,8 @@ namespace PeteTimesSix.CategorizedCleaning
             Rect nameRect = new Rect(leftRect.xMax + 4f, rect.y + 2f, rightRect.x - leftRect.xMax - 8f, RowHeight - 4f);
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = row.inHome || row.pinned ? Color.white : Dim;
-            Widgets.Label(nameRect.TopHalf(), row.pinned ? "CC_Tab_Pinned".Translate(row.name).ToString() : row.name);
+            string title = row.IsZone ? "CC_Tab_ZoneName".Translate(row.name).ToString() : (row.pinned ? "CC_Tab_Pinned".Translate(row.name).ToString() : row.name);
+            Widgets.Label(nameRect.TopHalf(), title);
             Text.Font = GameFont.Tiny;
             GUI.color = Dim;
             string detail = "CC_Tab_FilthCount".Translate(row.filthCount);
@@ -221,11 +250,18 @@ namespace PeteTimesSix.CategorizedCleaning
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
 
-            TooltipHandler.TipRegion(nameRect, () => "CC_Tab_RowTip".Translate(row.typeLabel, row.pinned ? "CC_Tab_PinnedYes".Translate() : "CC_Tab_PinnedNo".Translate(AutomaticLane(row.room)?.label ?? "-")).ToString(), row.room.ID ^ 0x5CC);
+            string autoLabel = row.IsZone ? "-" : (FilthCache.AutomaticLane(row.room)?.label ?? "-");
+            TooltipHandler.TipRegion(nameRect, () => "CC_Tab_RowTip".Translate(row.typeLabel,
+                row.IsZone ? "CC_Tab_ZoneTip".Translate() : (row.pinned ? "CC_Tab_PinnedYes".Translate() : "CC_Tab_PinnedNo".Translate(autoLabel))).ToString(),
+                (row.IsZone ? row.zone.ID : row.room.ID) ^ 0x5CC);
 
             if (Widgets.ButtonInvisible(nameRect))
             {
-                CameraJumper.TryJump(new GlobalTargetInfo(row.anchor, row.room.Map));
+                CameraJumper.TryJump(new GlobalTargetInfo(row.anchor, row.Map));
+                if (row.IsZone)
+                    Find.Selector.ClearSelection();
+                if (row.IsZone)
+                    Find.Selector.Select(row.zone, playSound: false, forceDesignatorDeselect: false);
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
             }
             if (Event.current.type == EventType.MouseDown && Event.current.button == 1 && Mouse.IsOver(nameRect))
@@ -233,28 +269,121 @@ namespace PeteTimesSix.CategorizedCleaning
                 Event.current.Use();
                 Find.WindowStack.Add(new FloatMenu(BuildRowMenu(row, lanes)));
             }
+
+            if (lane.isCustom)
+                DrawCustomControls(new Rect(rect.x + 4f, rect.y + RowHeight, rect.width - 8f, rect.height - RowHeight - 2f), row, cache);
         }
 
-        private List<FloatMenuOption> BuildRowMenu(RoomRow row, List<CleaningCategoryDef> lanes)
+        private void DrawCustomControls(Rect rect, Row row, FilthCache cache)
+        {
+            var config = row.Custom(cache);
+            if (config == null)
+                return;
+
+            Text.Font = GameFont.Tiny;
+            var kinds = CleaningFilthKindDef.All;
+            float lineHeight = 22f;
+            Rect kindsLine = new Rect(rect.x, rect.y, rect.width, lineHeight);
+            float kindWidth = kindsLine.width / Mathf.Max(1, kinds.Count);
+            for (int i = 0; i < kinds.Count; i++)
+            {
+                var kind = kinds[i];
+                Rect cell = new Rect(kindsLine.x + kindWidth * i, kindsLine.y, kindWidth - 2f, lineHeight);
+                bool on = config.kinds.Contains(kind);
+                bool before = on;
+                Widgets.CheckboxLabeled(cell, kind.LabelCap, ref on);
+                TooltipHandler.TipRegion(cell, kind.description);
+                if (on != before)
+                {
+                    config.ToggleKind(kind);
+                    NotifyConfigChanged(row, cache);
+                }
+            }
+
+            Rect tasksLine = new Rect(rect.x, kindsLine.yMax + 2f, rect.width, lineHeight);
+            float taskWidth = tasksLine.width / 3f;
+            DrawTaskToggle(new Rect(tasksLine.x, tasksLine.y, taskWidth - 2f, lineHeight), "CC_Custom_CutPlants", "CC_Custom_CutPlantsDesc", ref config.cutPlants);
+            DrawTaskToggle(new Rect(tasksLine.x + taskWidth, tasksLine.y, taskWidth - 2f, lineHeight), "CC_Custom_ClearSnow", "CC_Custom_ClearSnowDesc", ref config.clearSnow);
+            DrawTaskToggle(new Rect(tasksLine.x + taskWidth * 2f, tasksLine.y, taskWidth - 2f, lineHeight), "CC_Custom_HaulDebris", "CC_Custom_HaulDebrisDesc", ref config.haulDebris);
+
+            Rect priorityLine = new Rect(rect.x, tasksLine.yMax + 2f, rect.width, lineHeight);
+            var column = config.WorkLane;
+            string priorityLabel = "CC_Custom_PriorityOption".Translate(("CC_Priority_" + config.priority).Translate(), column?.WorkType?.labelShort ?? "-");
+            if (Widgets.ButtonText(priorityLine, priorityLabel))
+            {
+                var options = new List<FloatMenuOption>();
+                foreach (CustomCleaningPriority p in System.Enum.GetValues(typeof(CustomCleaningPriority)))
+                {
+                    var local = p;
+                    var localColumn = CleaningCategoryDef.ForPriority(local);
+                    string label = "CC_Custom_PriorityOption".Translate(("CC_Priority_" + local).Translate(), localColumn?.WorkType?.labelShort ?? "-");
+                    options.Add(new FloatMenuOption(label, local == config.priority ? null : (System.Action)delegate
+                    {
+                        config.priority = local;
+                        NotifyConfigChanged(row, cache);
+                    }));
+                }
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+            TooltipHandler.TipRegion(priorityLine, "CC_Custom_PriorityCommandDesc".Translate());
+            Text.Font = GameFont.Small;
+        }
+
+        private static void DrawTaskToggle(Rect rect, string labelKey, string tipKey, ref bool value)
+        {
+            Widgets.CheckboxLabeled(rect, labelKey.Translate(), ref value);
+            TooltipHandler.TipRegion(rect, tipKey.Translate());
+        }
+
+        private static void NotifyConfigChanged(Row row, FilthCache cache)
+        {
+            if (row.IsZone)
+                row.zone.Notify_ConfigChanged();
+            else
+                cache.Notify_RoomChanged(row.room);
+        }
+
+        private List<FloatMenuOption> BuildRowMenu(Row row, List<CleaningCategoryDef> lanes)
         {
             var options = new List<FloatMenuOption>();
-            var automatic = AutomaticLane(row.room);
-            options.Add(new FloatMenuOption("CC_RoomOverride_Auto".Translate(automatic?.label ?? "-"), row.pinned ? (System.Action)(() => Move(row, null)) : null));
+            if (!row.IsZone)
+            {
+                var automatic = FilthCache.AutomaticLane(row.room);
+                options.Add(new FloatMenuOption("CC_RoomOverride_Auto".Translate(automatic?.label ?? "-"), row.pinned ? (System.Action)(() => Move(row, null)) : null));
+            }
             foreach (var lane in lanes)
             {
                 var local = lane;
-                bool isCurrentPin = row.pinned && row.lane == local;
-                options.Add(new FloatMenuOption("CC_RoomOverride_Set".Translate(local.label), isCurrentPin ? null : (System.Action)(() => Move(row, local))));
+                bool isCurrent = row.IsZone ? row.lane == local : (row.pinned && row.lane == local);
+                options.Add(new FloatMenuOption("CC_RoomOverride_Set".Translate(local.label), isCurrent ? null : (System.Action)(() => Move(row, local))));
+            }
+            if (row.IsZone)
+            {
+                options.Add(new FloatMenuOption("CC_Tab_DeleteZone".Translate(), delegate
+                {
+                    row.zone.Delete();
+                    Refresh(force: true);
+                }));
             }
             return options;
         }
 
-        private void Move(RoomRow row, CleaningCategoryDef lane)
+        private void Move(Row row, CleaningCategoryDef lane)
         {
-            var map = row.room.Map;
-            if (map == null || row.room.Dereferenced)
+            var map = row.Map;
+            if (map == null)
                 return;
-            map.GetComponent<FilthCache>().PaintRoom(row.room, lane);
+            if (row.IsZone)
+            {
+                if (lane != null)
+                    row.zone.SetLane(lane);
+            }
+            else
+            {
+                if (row.room.Dereferenced)
+                    return;
+                map.GetComponent<FilthCache>().PinRoom(row.room, lane);
+            }
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
             Refresh(force: true);
         }

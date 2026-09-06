@@ -2,7 +2,6 @@ using HarmonyLib;
 using RimWorld;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection.Emit;
 using Verse;
 
@@ -94,17 +93,17 @@ namespace PeteTimesSix.CategorizedCleaning.ModCompat
         }
 
         /// <summary>
-        /// The work giver whose category would claim filth in this room. Falls back to CommonSense's own getter
-        /// (which other mods may have patched) when the room resolves to the vanilla CleanFilth giver or to nothing.
+        /// The work giver whose column cleans this room. Falls back to CommonSense's own getter (which other mods may
+        /// have patched) when the room resolves to the vanilla CleanFilth giver or to nothing.
         /// </summary>
         public static WorkGiverDef GetWorkGiver(Room room)
         {
             var cache = room?.Map?.GetComponent<FilthCache>();
-            if (cache != null && room.CellCount > 0)
+            if (cache != null)
             {
-                var category = cache.Classify(room.Cells.First(), room);
-                if (category?.workGiver != null && category.workGiver.defName != "CleanFilth")
-                    return category.workGiver;
+                var column = cache.WorkColumnForRoom(room);
+                if (column?.workGiver != null && column.workGiver.defName != "CleanFilth")
+                    return column.workGiver;
             }
 
             //call the original getter in case someone else patched it

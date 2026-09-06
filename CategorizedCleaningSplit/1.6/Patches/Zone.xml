@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch>
-	<!-- Expand/clear designators for the dedicated cleaning areas, next to the vanilla area tools. -->
+	<!-- Cleaning zone tool next to the stockpile and growing zone tools. -->
 	<Operation Class="PatchOperationAdd">
 	  <xpath>Defs/DesignationCategoryDef[defName="Zone"]/specialDesignatorClasses</xpath>
 	  <value>
-		<li>PeteTimesSix.CategorizedCleaning.Designator_AreaCleaningExpand</li>
-		<li>PeteTimesSix.CategorizedCleaning.Designator_AreaCleaningClear</li>
+		<li>PeteTimesSix.CategorizedCleaning.Designator_ZoneAdd_Cleaning</li>
 	  </value>
 	</Operation>
 </Patch>

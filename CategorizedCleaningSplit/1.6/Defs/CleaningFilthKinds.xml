@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+
+  <!--
+    Coarse filth kinds the player can toggle per lane or per custom entry. A filth def belongs to the first kind
+    listing it, else to the terrain-sourced kind if its placement mask includes Terrain, else to the fallback kind.
+  -->
+
+  <PeteTimesSix.CategorizedCleaning.CleaningFilthKindDef>
+    <defName>CategorizedCleaning_Kind_BodyFluids</defName>
+    <label>body fluids</label>
+    <description>Blood, vomit, bile, slime, hair and other things that came out of a living creature.</description>
+    <order>0</order>
+    <filthDefs>
+      <li>Filth_Blood</li>
+      <li>Filth_BloodSmear</li>
+      <li>Filth_BloodInsect</li>
+      <li>Filth_AmnioticFluid</li>
+      <li>Filth_GestationFluid</li>
+      <li>Filth_Slime</li>
+      <li>Filth_Vomit</li>
+      <li>Filth_CorpseBile</li>
+      <li>Filth_Hair</li>
+      <li>Filth_AnimalFilth</li>
+      <li>Filth_SpentAcid</li>
+      <li>Filth_OilSmear</li>
+      <li MayRequire="Ludeon.RimWorld.Biotech">Filth_FlammableBile</li>
+      <li MayRequire="Ludeon.RimWorld.Ideology">Filth_DriedBlood</li>
+      <li MayRequire="Ludeon.RimWorld.Ideology">Filth_PodSlime</li>
+      <li MayRequire="Ludeon.RimWorld.Anomaly">Filth_RevenantSmear</li>
+      <li MayRequire="Ludeon.RimWorld.Anomaly">Filth_RevenantBloodPool</li>
+      <li MayRequire="Ludeon.RimWorld.Anomaly">Filth_GrayFlesh</li>
+      <li MayRequire="Ludeon.RimWorld.Anomaly">Filth_GrayFleshNoticeable</li>
+      <li MayRequire="Ludeon.RimWorld.Anomaly">Filth_TwistedFlesh</li>
+      <li MayRequire="Ludeon.RimWorld.Anomaly">Filth_Fleshmass</li>
+      <li MayRequire="Ludeon.RimWorld.Anomaly">Filth_DarkBlood</li>
+      <li MayRequire="Ludeon.RimWorld.Anomaly">Filth_DarkBloodSmear</li>
+      <li MayRequire="Ludeon.RimWorld.Anomaly">Filth_MetalhorrorDebris</li>
+    </filthDefs>
+  </PeteTimesSix.CategorizedCleaning.CleaningFilthKindDef>
+
+  <PeteTimesSix.CategorizedCleaning.CleaningFilthKindDef>
+    <defName>CategorizedCleaning_Kind_Debris</defName>
+    <label>debris and trash</label>
+    <description>Rubble, trash, ash, slag, machine bits, spilled fuel and anything else that is not a body fluid or natural dirt.</description>
+    <order>10</order>
+    <fallback>true</fallback>
+    <filthDefs>
+      <li>Filth_Trash</li>
+      <li>Filth_RubbleRock</li>
+      <li>Filth_RubbleBuilding</li>
+      <li>SlagRubble</li>
+      <li>SandbagRubble</li>
+      <li>Filth_BlastMark</li>
+      <li>Filth_MachineBits</li>
+      <li>Filth_FireFoam</li>
+      <li>Filth_Fuel</li>
+      <li>Filth_Ash</li>
+      <li>Filth_ScatteredDocuments</li>
+      <li>Filth_MoldyUniform</li>
+      <li MayRequire="Ludeon.RimWorld.Biotech">Filth_Floordrawing</li>
+      <li MayRequire="Ludeon.RimWorld.Odyssey">Filth_VolcanicAsh</li>
+      <li MayRequire="Ludeon.RimWorld.Odyssey">Filth_ChemfuelStain</li>
+      <li MayRequire="Ludeon.RimWorld.Odyssey">Filth_ChippedIce</li>
+    </filthDefs>
+  </PeteTimesSix.CategorizedCleaning.CleaningFilthKindDef>
+
+  <PeteTimesSix.CategorizedCleaning.CleaningFilthKindDef>
+    <defName>CategorizedCleaning_Kind_Natural</defName>
+    <label>natural dirt</label>
+    <description>Dirt, sand, mud and puddles tracked in from the terrain. Outdoors this reappears endlessly, so the exterior lane skips it by default.</description>
+    <order>20</order>
+    <matchesTerrainSourced>true</matchesTerrainSourced>
+    <filthDefs>
+      <li>Filth_Dirt</li>
+      <li>Filth_Sand</li>
+      <li>Filth_LooseGround</li>
+      <li>Filth_Water</li>
+    </filthDefs>
+  </PeteTimesSix.CategorizedCleaning.CleaningFilthKindDef>
+
+</Defs>

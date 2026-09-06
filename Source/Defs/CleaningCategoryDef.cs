@@ -6,44 +6,57 @@ using Verse;
 
 namespace PeteTimesSix.CategorizedCleaning
 {
+    /// <summary>Which Work-tab column does the cleaning for a Custom lane entry.</summary>
+    public enum CustomCleaningPriority
+    {
+        High,
+        Normal,
+        Low
+    }
+
     /// <summary>
-    /// One cleaning column: a work type / work giver pair plus how filth is routed to it.
-    /// Routing, in order: (1) cells painted into the category's own area (the Custom zone, or a room override made by
-    /// right-clicking a room), (2) the room type lists from the mod settings, (3) the indoor/outdoor defaults.
+    /// One swim lane of the Cleaning tab. Three lanes (clean rooms, interior, exterior) own a work giver and therefore a
+    /// Work-tab column; the Ignored lane claims nothing; the Custom lane routes each entry to one of the three columns
+    /// according to its own <see cref="CustomCleaningConfig"/>.
     /// </summary>
     public class CleaningCategoryDef : Def
     {
+        /// <summary>Work giver whose Work-tab column cleans this lane. Null for the ignored and custom lanes.</summary>
         public WorkGiverDef workGiver;
 
-        /// <summary>Room types routed here until the player moves them in the settings.</summary>
-        public List<RoomRoleDef> defaultRoomRoles = new List<RoomRoleDef>();
+        /// <summary>Room types can be assigned to this lane as a default in the mod settings.</summary>
+        public bool acceptsRoomTypes = true;
 
-        /// <summary>Receives filth in enclosed rooms whose type is not listed anywhere.</summary>
+        /// <summary>The mod settings let the player choose which filth kinds this lane cleans.</summary>
+        public bool hasFilthKindFilter;
+
+        public bool isCustom;
+        public bool isIgnored;
+
+        /// <summary>Custom entries with this priority are cleaned by this lane's Work-tab column.</summary>
+        public bool servesCustomPriority;
+        public CustomCleaningPriority customPriority = CustomCleaningPriority.Normal;
+
+        /// <summary>Receives filth in enclosed rooms whose type is not assigned anywhere.</summary>
         public bool indoorDefault;
 
-        /// <summary>Receives filth outdoors (and in rooms the game counts as outdoors) whose type is not listed anywhere.</summary>
+        /// <summary>Receives filth outdoors (and in rooms the game counts as outdoors) whose type is not assigned anywhere.</summary>
         public bool outdoorDefault;
 
-        /// <summary>Gets Expand/Clear designators under Architect > Zone so the player can paint its area directly.</summary>
-        public bool paintable;
+        public List<RoomRoleDef> defaultRoomRoles = new List<RoomRoleDef>();
+        public List<CleaningFilthKindDef> defaultFilthKinds = new List<CleaningFilthKindDef>();
 
-        /// <summary>Column order in the settings screen.</summary>
+        /// <summary>Lane order in the tab and the settings.</summary>
         public int order;
 
-        /// <summary>Used for the area drawn on the map and the debug overlay.</summary>
         public Color color = Color.magenta;
-
-        /// <summary>Label of this category's map area; falls back to the def label.</summary>
-        public string areaLabel;
 
         private static List<CleaningCategoryDef> all;
         private static Dictionary<WorkGiverDef, CleaningCategoryDef> byWorkGiver;
 
         public WorkTypeDef WorkType => workGiver?.workType;
 
-        public string AreaLabel => areaLabel.NullOrEmpty() ? LabelCap.ToString() : areaLabel;
-
-        /// <summary>All categories in column order. Empty until defs are loaded.</summary>
+        /// <summary>All lanes in order. Empty until defs are loaded.</summary>
         public static List<CleaningCategoryDef> All
         {
             get
@@ -61,7 +74,15 @@ namespace PeteTimesSix.CategorizedCleaning
 
         public static CleaningCategoryDef IndoorDefault => All.FirstOrDefault(d => d.indoorDefault);
         public static CleaningCategoryDef OutdoorDefault => All.FirstOrDefault(d => d.outdoorDefault);
-        public static CleaningCategoryDef Paintable => All.FirstOrDefault(d => d.paintable);
+        public static CleaningCategoryDef Custom => All.FirstOrDefault(d => d.isCustom);
+        public static CleaningCategoryDef Ignored => All.FirstOrDefault(d => d.isIgnored);
+
+        /// <summary>The lane (and Work-tab column) that serves a custom priority.</summary>
+        public static CleaningCategoryDef ForPriority(CustomCleaningPriority priority)
+        {
+            return All.FirstOrDefault(d => d.servesCustomPriority && d.customPriority == priority)
+                ?? All.FirstOrDefault(d => d.workGiver != null);
+        }
 
         public static CleaningCategoryDef ForWorkGiver(WorkGiverDef workGiverDef)
         {
@@ -81,8 +102,8 @@ namespace PeteTimesSix.CategorizedCleaning
         {
             foreach (var error in base.ConfigErrors())
                 yield return error;
-            if (workGiver == null)
-                yield return "CleaningCategoryDef " + defName + " has no workGiver";
+            if (workGiver == null && !isCustom && !isIgnored)
+                yield return "CleaningCategoryDef " + defName + " has no workGiver but is neither custom nor ignored";
         }
     }
 }

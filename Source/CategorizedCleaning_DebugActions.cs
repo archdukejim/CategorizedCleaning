@@ -1,4 +1,6 @@
 using LudeonTK;
+using RimWorld;
+using System.Linq;
 using System.Text;
 using Verse;
 
@@ -12,12 +14,12 @@ namespace PeteTimesSix.CategorizedCleaning
             var map = Find.CurrentMap;
             var cache = map.GetComponent<FilthCache>();
             var sb = new StringBuilder();
-            sb.AppendLine($"CC: filth by category on map {map.uniqueID}:");
+            sb.AppendLine($"CC: filth by lane on map {map.uniqueID}:");
             foreach (var def in CleaningCategoryDef.All)
             {
-                var area = cache.GetArea(def);
-                sb.AppendLine($"  {def.defName} ({def.label}) rooms={CategorizedCleaning_Settings.RolesFor(def).Count} painted={(area == null ? 0 : area.TrueCount)} cells: {cache.CountFor(def)} filth; workType={def.WorkType?.defName} giver={def.workGiver?.defName}");
+                sb.AppendLine($"  {def.defName} ({def.label}) rooms={CategorizedCleaning_Settings.RolesFor(def).Count} kinds={CategorizedCleaning_Settings.KindsFor(def).Count}: {cache.CountFor(def)} filth; workType={def.WorkType?.defName ?? "-"} giver={def.workGiver?.defName ?? "-"}");
             }
+            sb.AppendLine($"  pins={cache.Pins.Count} cleaning zones={map.zoneManager.AllZones.OfType<Zone_Cleaning>().Count()}");
             sb.AppendLine($"  total filth on map: {map.listerThings.ThingsInGroup(ThingRequestGroup.Filth).Count}, in home area (vanilla lister): {map.listerFilthInHomeArea.FilthInHomeArea.Count}");
             Log.Message(sb.ToString());
         }
@@ -29,8 +31,12 @@ namespace PeteTimesSix.CategorizedCleaning
             var cell = UI.MouseCell();
             var cache = map.GetComponent<FilthCache>();
             var room = cell.GetRoom(map);
-            var category = cache.Classify(cell, room);
-            Log.Message($"CC: cell {cell} room={(room == null ? "none" : room.Role?.defName ?? "?")} outdoors={(room?.PsychologicallyOutdoors ?? true)} painted={(cache.PaintedCategoryAt(cell)?.defName ?? "no")} -> {(category?.defName ?? "unclaimed")}");
+            var zone = map.zoneManager.ZoneAt(cell) as Zone_Cleaning;
+            var sb = new StringBuilder();
+            sb.Append($"CC: cell {cell} room={(room == null ? "none" : room.Role?.defName ?? "?")} outdoors={(room?.PsychologicallyOutdoors ?? true)} lane={(cache.LaneFor(room)?.defName ?? "-")} pin={(cache.PinFor(room)?.lane?.defName ?? "no")} zone={(zone?.label ?? "no")}");
+            foreach (var filth in cell.GetThingList(map).OfType<Filth>())
+                sb.Append($"\n   {filth.def.defName} [{CleaningFilthKindDef.KindOf(filth.def)?.defName}] -> {(cache.Classify(filth)?.defName ?? "unclaimed")}");
+            Log.Message(sb.ToString());
         }
     }
 }

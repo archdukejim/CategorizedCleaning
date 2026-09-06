@@ -5,7 +5,7 @@
     <labelShort>mop</labelShort>
     <pawnLabel>Cleaner</pawnLabel>
     <gerundLabel>mopping up</gerundLabel>
-    <description>Clean up in kitchens, hospitals and laboratories, plus any room assigned to the "clean rooms" column.</description>
+    <description>Clean up in kitchens, hospitals and laboratories, plus anything in the "clean rooms" lane or set to high priority in the Cleaning tab.</description>
     <verb>Clean</verb>
     <naturalPriority>210</naturalPriority>
     <alwaysStartActive>true</alwaysStartActive>
@@ -23,27 +23,9 @@
     <labelShort>sweep</labelShort>
     <pawnLabel>Cleaner</pawnLabel>
     <gerundLabel>sweeping up</gerundLabel>
-    <description>Clean up indoors.</description>
+    <description>Clean up indoors, plus anything in the "interior" lane or set to normal priority in the Cleaning tab.</description>
     <verb>Clean</verb>
     <naturalPriority>205</naturalPriority>
-    <alwaysStartActive>true</alwaysStartActive>
-    <requireCapableColonist>true</requireCapableColonist>
-    <workTags>
-      <li>ManualDumb</li>
-      <li>Cleaning</li>
-      <li>Commoner</li>
-      <li>AllWork</li>
-    </workTags>
-  </WorkTypeDef>
-
- <WorkTypeDef>
-    <defName>CleaningCustom</defName>
-    <labelShort>custom</labelShort>
-    <pawnLabel>Cleaner</pawnLabel>
-    <gerundLabel>cleaning the custom zone</gerundLabel>
-    <description>Clean up in the custom cleaning zone (Architect &gt; Zone) and in rooms assigned to the "custom" column.</description>
-    <verb>Clean</verb>
-    <naturalPriority>207</naturalPriority>
     <alwaysStartActive>true</alwaysStartActive>
     <requireCapableColonist>true</requireCapableColonist>
     <workTags>

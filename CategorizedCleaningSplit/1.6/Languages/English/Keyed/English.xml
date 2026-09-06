@@ -2,31 +2,57 @@
 <LanguageData>
 	<CategorizedCleaning_ModTitle>Categorized Cleaning</CategorizedCleaning_ModTitle>
 
-	<!-- Settings (defaults per room type) -->
-	<CC_Settings_Hint>Defaults: each room type belongs to one cleaning column; use the arrows to move it. Rooms of that type land in that column unless you move the individual room in the Cleaning tab. The custom zone is painted from Architect &gt; Zone.</CC_Settings_Hint>
+	<!-- Settings (defaults) -->
+	<CC_Settings_Hint>Defaults. Top: each room type belongs to one lane; use the arrows to move it. Rooms of that type land in that lane unless you move the individual room in the Cleaning tab. Bottom: which filth kinds each work lane cleans.</CC_Settings_Hint>
+	<CC_Settings_KindsHeader>Filth kinds cleaned per lane</CC_Settings_KindsHeader>
 
 	<!-- Cleaning tab -->
-	<CC_Tab_Hint>Every enclosed room on this map, sorted into cleaning columns by its room type. Use the arrows or right-click a room to move it to another column; left-click a room to jump to it.</CC_Tab_Hint>
+	<CC_Tab_Hint>Every enclosed room and every cleaning zone on this map, sorted into lanes. Arrows or right-click move an entry to another lane; left-click jumps to it. Draw new zones with Architect &gt; Zone &gt; Cleaning zone.</CC_Tab_Hint>
 	<CC_Tab_Defaults>Defaults...</CC_Tab_Defaults>
-	<CC_Tab_DefaultsTip>Open the mod settings to change which column each room type lands in by default.</CC_Tab_DefaultsTip>
+	<CC_Tab_DefaultsTip>Open the mod settings: which lane each room type lands in by default, and which filth kinds each lane cleans.</CC_Tab_DefaultsTip>
 	<CC_Tab_WorkColumn>Work tab column: {0}</CC_Tab_WorkColumn>
+	<CC_Tab_LaneKinds>Cleans: {0}</CC_Tab_LaneKinds>
 	<CC_Tab_Pinned>{0} *</CC_Tab_Pinned>
+	<CC_Tab_ZoneName>[Z] {0}</CC_Tab_ZoneName>
+	<CC_Tab_ZoneType>Cleaning zone</CC_Tab_ZoneType>
 	<CC_Tab_FilthCount>{0} filth</CC_Tab_FilthCount>
 	<CC_Tab_OutsideHome>(outside home area, not cleaned)</CC_Tab_OutsideHome>
-	<CC_Tab_RowTip>Room type: {0}\n{1}\n\nLeft-click: jump to room. Right-click: choose column. Arrows: move to the next column.</CC_Tab_RowTip>
-	<CC_Tab_PinnedYes>Pinned to this column (*). Right-click and pick Automatic to unpin.</CC_Tab_PinnedYes>
-	<CC_Tab_PinnedNo>Placed automatically by room type (default column: {0}).</CC_Tab_PinnedNo>
+	<CC_Tab_RowTip>{0}\n{1}\n\nLeft-click: jump to it. Right-click: choose lane. Arrows: move to the next lane.</CC_Tab_RowTip>
+	<CC_Tab_ZoneTip>Cleaning zone. Its lane applies wherever it is drawn, even outside the home area. Delete it from its own buttons or the right-click menu.</CC_Tab_ZoneTip>
+	<CC_Tab_PinnedYes>Pinned to this lane (*). Right-click and pick Automatic to unpin.</CC_Tab_PinnedYes>
+	<CC_Tab_PinnedNo>Placed automatically by room type (default lane: {0}).</CC_Tab_PinnedNo>
+	<CC_Tab_DeleteZone>Delete zone</CC_Tab_DeleteZone>
 
-	<!-- Room override menu (tab and map right-click); {0} is a column name -->
-	<CC_RoomOverride_Menu>Cleaning column for this room ({0})...</CC_RoomOverride_Menu>
+	<!-- Room override menu (tab and map right-click); {0} is a lane name -->
+	<CC_RoomOverride_Menu>Cleaning lane for this room ({0})...</CC_RoomOverride_Menu>
 	<CC_RoomOverride_AutoShort>automatic: {0}</CC_RoomOverride_AutoShort>
 	<CC_RoomOverride_Auto>Automatic (currently {0})</CC_RoomOverride_Auto>
-	<CC_RoomOverride_Set>Always clean as: {0}</CC_RoomOverride_Set>
+	<CC_RoomOverride_Set>Always treat as: {0}</CC_RoomOverride_Set>
 
-	<!-- Designators and areas -->
-	<CC_DesignatorCustomZoneExpand>Expand custom cleaning zone</CC_DesignatorCustomZoneExpand>
-	<CC_DesignatorCustomZoneExpandDesc>Paint the custom cleaning zone. Filth inside it is cleaned by the "custom" work column, even outside the home area.</CC_DesignatorCustomZoneExpandDesc>
-	<CC_DesignatorCustomZoneClear>Clear custom cleaning zone</CC_DesignatorCustomZoneClear>
-	<CC_DesignatorCustomZoneClearDesc>Remove cells from the custom cleaning zone.</CC_DesignatorCustomZoneClearDesc>
-	<CC_CleaningArea>Cleaning zone</CC_CleaningArea>
+	<!-- Custom lane entries -->
+	<CC_Priority_High>high</CC_Priority_High>
+	<CC_Priority_Normal>normal</CC_Priority_Normal>
+	<CC_Priority_Low>low</CC_Priority_Low>
+	<CC_Custom_PriorityOption>Priority: {0} ({1} column)</CC_Custom_PriorityOption>
+	<CC_Custom_PriorityCommand>Priority: {0}</CC_Custom_PriorityCommand>
+	<CC_Custom_PriorityCommandDesc>Which Work tab column cleans this entry: high uses the "mop" column, normal the "sweep" column, low the vanilla "clean" column. Set colonists' priorities for those columns in the Work tab.</CC_Custom_PriorityCommandDesc>
+	<CC_Custom_PrioritySummary>Priority: {0} ({1} column)</CC_Custom_PrioritySummary>
+	<CC_Custom_KindToggle>Clean {0}</CC_Custom_KindToggle>
+	<CC_Custom_KindsAll>Cleans all filth kinds</CC_Custom_KindsAll>
+	<CC_Custom_KindsNone>Cleans no filth</CC_Custom_KindsNone>
+	<CC_Custom_KindsSome>Cleans: {0}</CC_Custom_KindsSome>
+	<CC_Custom_Tasks>Upkeep: {0}</CC_Custom_Tasks>
+	<CC_Custom_CutPlants>Cut plants</CC_Custom_CutPlants>
+	<CC_Custom_CutPlantsDesc>Wild grass and bushes here are marked for cutting (trees and crops are left alone). Done by the Plant cut work column.</CC_Custom_CutPlantsDesc>
+	<CC_Custom_ClearSnow>Clear snow</CC_Custom_ClearSnow>
+	<CC_Custom_ClearSnowDesc>These cells are added to the snow/sand clear area while this is on, and removed again when it is turned off.</CC_Custom_ClearSnowDesc>
+	<CC_Custom_HaulDebris>Haul debris</CC_Custom_HaulDebris>
+	<CC_Custom_HaulDebrisDesc>Rock chunks, slag and other things that are not hauled on their own are marked for hauling. Needs a stockpile that accepts them.</CC_Custom_HaulDebrisDesc>
+
+	<!-- Cleaning zones -->
+	<CC_CleaningZone>Cleaning zone</CC_CleaningZone>
+	<CC_CleaningZoneDesc>Draw a cleaning zone. Filth on its cells follows the zone's lane in the Cleaning tab, even outside the home area. New zones start in the Custom lane.</CC_CleaningZoneDesc>
+	<CC_Zone_Lane>Cleaning lane: {0}</CC_Zone_Lane>
+	<CC_Zone_LaneCommand>Lane: {0}</CC_Zone_LaneCommand>
+	<CC_Zone_LaneCommandDesc>Which lane of the Cleaning tab this zone belongs to.</CC_Zone_LaneCommandDesc>
 </LanguageData>

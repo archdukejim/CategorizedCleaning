@@ -8,25 +8,29 @@ using Verse;
 namespace PeteTimesSix.CategorizedCleaning
 {
     /// <summary>
-    /// One column per cleaning category; every room type sits in exactly one column. Unlisted types (from newly added
-    /// mods, for instance) default to the indoor category so the columns always show the full set.
+    /// Defaults only. (1) One column per lane that accepts room types; every room type sits in exactly one column.
+    /// (2) Which filth kinds each work lane cleans. Per-room and per-zone choices live on the map, not here.
     /// </summary>
     public class CategorizedCleaning_Settings : ModSettings
     {
-        public const float LIST_DESIRED_HEIGHT = 440f;
         public const float SCROLLBAR_WIDTH = 18f;
         public const float DEF_BUTTON_HEIGHT = 32f;
         public const float ARROW_WIDTH = 32f;
+        private const float KindRowHeight = 28f;
 
         private const string LEGACY_STERILE_DEFNAME = "CategorizedCleaning_CleanRooms";
-        private const string LEGACY_OUTDOOR_DEFNAME = "CategorizedCleaning_HomeArea";
+        private const string LEGACY_OUTDOOR_DEFNAME = "CategorizedCleaning_Exterior";
 
         private static Dictionary<CleaningCategoryDef, List<RoomRoleDef>> rolesByCategory;
+        private static Dictionary<CleaningCategoryDef, List<CleaningFilthKindDef>> kindsByLane;
         private static Dictionary<RoomRoleDef, CleaningCategoryDef> categoryByRole = new Dictionary<RoomRoleDef, CleaningCategoryDef>();
         private static bool initialized;
         private static bool hasSavedLists;
 
         private Vector2[] scrollPositions = new Vector2[0];
+
+        public static List<CleaningCategoryDef> RoomLanes => CleaningCategoryDef.All.Where(d => d.acceptsRoomTypes).ToList();
+        public static List<CleaningCategoryDef> FilterLanes => CleaningCategoryDef.All.Where(d => d.hasFilthKindFilter).ToList();
 
         public static List<RoomRoleDef> RolesFor(CleaningCategoryDef def)
         {
@@ -51,6 +55,32 @@ namespace PeteTimesSix.CategorizedCleaning
             RebuildRoleMap();
         }
 
+        public static List<CleaningFilthKindDef> KindsFor(CleaningCategoryDef lane)
+        {
+            EnsureInitialized();
+            return kindsByLane != null && lane != null && kindsByLane.TryGetValue(lane, out var list) ? list : new List<CleaningFilthKindDef>();
+        }
+
+        public static bool LaneAllows(CleaningCategoryDef lane, ThingDef filthDef)
+        {
+            if (lane == null)
+                return false;
+            if (!lane.hasFilthKindFilter)
+                return true;
+            EnsureInitialized();
+            var kind = CleaningFilthKindDef.KindOf(filthDef);
+            return kind != null && kindsByLane != null && kindsByLane.TryGetValue(lane, out var list) && list.Contains(kind);
+        }
+
+        public static void ToggleLaneKind(CleaningCategoryDef lane, CleaningFilthKindDef kind)
+        {
+            EnsureInitialized();
+            if (kindsByLane == null || !kindsByLane.TryGetValue(lane, out var list))
+                return;
+            if (!list.Remove(kind))
+                list.Add(kind);
+        }
+
         private static void EnsureInitialized(List<RoomRoleDef> legacySterileRooms = null, List<RoomRoleDef> legacyOutdoorRooms = null)
         {
             if (initialized)
@@ -59,11 +89,13 @@ namespace PeteTimesSix.CategorizedCleaning
             if (all.Count == 0)
                 return; // defs not loaded yet; try again on the next access
 
+            // Room type columns.
+            var roomLanes = RoomLanes;
             if (rolesByCategory == null)
                 rolesByCategory = new Dictionary<CleaningCategoryDef, List<RoomRoleDef>>();
-            foreach (var key in rolesByCategory.Keys.Where(k => k == null || !all.Contains(k)).ToList())
+            foreach (var key in rolesByCategory.Keys.Where(k => k == null || !roomLanes.Contains(k)).ToList())
                 rolesByCategory.Remove(key);
-            foreach (var def in all)
+            foreach (var def in roomLanes)
             {
                 if (!rolesByCategory.TryGetValue(def, out var list) || list == null)
                     rolesByCategory[def] = new List<RoomRoleDef>();
@@ -72,31 +104,46 @@ namespace PeteTimesSix.CategorizedCleaning
             bool fresh = !hasSavedLists && legacySterileRooms == null && legacyOutdoorRooms == null;
             if (fresh)
             {
-                foreach (var def in all)
+                foreach (var def in roomLanes)
                     rolesByCategory[def].AddRange(def.defaultRoomRoles);
             }
             else
             {
                 // Settings written by the pre-column versions of the mod only knew sterile and outdoor rooms.
-                if (legacySterileRooms != null && all.FirstOrDefault(d => d.defName == LEGACY_STERILE_DEFNAME) is CleaningCategoryDef sterile)
+                if (legacySterileRooms != null && roomLanes.FirstOrDefault(d => d.defName == LEGACY_STERILE_DEFNAME) is CleaningCategoryDef sterile)
                     rolesByCategory[sterile].AddRange(legacySterileRooms);
-                if (legacyOutdoorRooms != null && all.FirstOrDefault(d => d.defName == LEGACY_OUTDOOR_DEFNAME) is CleaningCategoryDef outdoor)
+                if (legacyOutdoorRooms != null && roomLanes.FirstOrDefault(d => d.defName == LEGACY_OUTDOOR_DEFNAME) is CleaningCategoryDef outdoor)
                     rolesByCategory[outdoor].AddRange(legacyOutdoorRooms);
             }
 
-            // Every role in exactly one column; earlier columns win duplicates; unlisted roles go to the indoor default.
             var seen = new HashSet<RoomRoleDef>();
-            foreach (var def in all)
+            foreach (var def in roomLanes)
                 rolesByCategory[def].RemoveAll(r => r == null || r == RoomRoleDefOf.None || !seen.Add(r));
 
-            var fallback = CleaningCategoryDef.IndoorDefault ?? all[0];
+            var fallback = CleaningCategoryDef.IndoorDefault ?? roomLanes[0];
+            if (!rolesByCategory.ContainsKey(fallback))
+                fallback = roomLanes[0];
             foreach (var role in DefDatabase<RoomRoleDef>.AllDefsListForReading)
             {
                 if (role != RoomRoleDefOf.None && !seen.Contains(role))
                     rolesByCategory[fallback].Add(role);
             }
-
             RebuildRoleMap();
+
+            // Filth kind filters.
+            var allKinds = CleaningFilthKindDef.All;
+            if (kindsByLane == null)
+                kindsByLane = new Dictionary<CleaningCategoryDef, List<CleaningFilthKindDef>>();
+            foreach (var lane in FilterLanes)
+            {
+                if (!kindsByLane.TryGetValue(lane, out var list) || list == null)
+                {
+                    list = lane.defaultFilthKinds.Count > 0 ? new List<CleaningFilthKindDef>(lane.defaultFilthKinds) : new List<CleaningFilthKindDef>(allKinds);
+                    kindsByLane[lane] = list;
+                }
+                list.RemoveAll(k => k == null);
+            }
+
             initialized = true;
         }
 
@@ -112,7 +159,7 @@ namespace PeteTimesSix.CategorizedCleaning
             }
         }
 
-        /// <summary>Called when the settings window closes: re-index the filth on every map with the new room lists.</summary>
+        /// <summary>Called when the settings window closes: re-index the filth on every map with the new defaults.</summary>
         public static void ApplyToGame()
         {
             EnsureInitialized();
@@ -125,9 +172,11 @@ namespace PeteTimesSix.CategorizedCleaning
         public void DoSettingsWindowContents(Rect inRect)
         {
             EnsureInitialized();
-            var all = CleaningCategoryDef.All;
-            if (scrollPositions.Length != all.Count)
-                scrollPositions = new Vector2[all.Count];
+            var roomLanes = RoomLanes;
+            var filterLanes = FilterLanes;
+            var kinds = CleaningFilthKindDef.All;
+            if (scrollPositions.Length != roomLanes.Count)
+                scrollPositions = new Vector2[roomLanes.Count];
 
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -135,18 +184,51 @@ namespace PeteTimesSix.CategorizedCleaning
             Rect hintRect = inRect.TopPartPixels(48f);
             Widgets.Label(hintRect, "CC_Settings_Hint".Translate());
 
-            float listsHeight = Mathf.Min(LIST_DESIRED_HEIGHT, inRect.height - hintRect.height - 8f);
+            float kindsSectionHeight = 30f + KindRowHeight * filterLanes.Count + 8f;
+            float listsHeight = inRect.height - hintRect.height - kindsSectionHeight - 24f;
             Rect listsRect = new Rect(inRect.x, hintRect.yMax + 8f, inRect.width, listsHeight);
-            float columnWidth = listsRect.width / all.Count;
-
-            for (int i = 0; i < all.Count; i++)
+            float columnWidth = listsRect.width / roomLanes.Count;
+            for (int i = 0; i < roomLanes.Count; i++)
             {
-                var def = all[i];
+                var def = roomLanes[i];
                 Rect column = new Rect(listsRect.x + columnWidth * i, listsRect.y, columnWidth, listsRect.height).ContractedBy(2f);
-                Action<RoomRoleDef> moveLeft = i > 0 ? role => MoveRole(role, all[i - 1]) : (Action<RoomRoleDef>)null;
-                Action<RoomRoleDef> moveRight = i < all.Count - 1 ? role => MoveRole(role, all[i + 1]) : (Action<RoomRoleDef>)null;
+                Action<RoomRoleDef> moveLeft = i > 0 ? role => MoveRole(role, roomLanes[i - 1]) : (Action<RoomRoleDef>)null;
+                Action<RoomRoleDef> moveRight = i < roomLanes.Count - 1 ? role => MoveRole(role, roomLanes[i + 1]) : (Action<RoomRoleDef>)null;
                 DrawDefsList(def, column, ref scrollPositions[i], RolesFor(def).ToList(), moveLeft, moveRight);
             }
+
+            Rect kindsRect = new Rect(inRect.x, listsRect.yMax + 12f, inRect.width, kindsSectionHeight);
+            DrawKindFilters(kindsRect, filterLanes, kinds);
+        }
+
+        private void DrawKindFilters(Rect rect, List<CleaningCategoryDef> lanes, List<CleaningFilthKindDef> kinds)
+        {
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(new Rect(rect.x, rect.y, rect.width, 28f), "CC_Settings_KindsHeader".Translate());
+            float y = rect.y + 30f;
+            float laneLabelWidth = 150f;
+            float kindWidth = Mathf.Min(220f, (rect.width - laneLabelWidth) / Mathf.Max(1, kinds.Count));
+            foreach (var lane in lanes)
+            {
+                Rect row = new Rect(rect.x, y, rect.width, KindRowHeight);
+                GUI.color = lane.color;
+                Widgets.Label(new Rect(row.x, row.y, laneLabelWidth, row.height), lane.LabelCap);
+                GUI.color = Color.white;
+                var current = KindsFor(lane);
+                for (int k = 0; k < kinds.Count; k++)
+                {
+                    var kind = kinds[k];
+                    Rect cell = new Rect(row.x + laneLabelWidth + kindWidth * k, row.y, kindWidth - 4f, row.height);
+                    bool on = current.Contains(kind);
+                    bool before = on;
+                    Widgets.CheckboxLabeled(cell, kind.LabelCap, ref on);
+                    if (on != before)
+                        ToggleLaneKind(lane, kind);
+                    TooltipHandler.TipRegion(cell, kind.description);
+                }
+                y += KindRowHeight;
+            }
+            Text.Anchor = TextAnchor.UpperLeft;
         }
 
         private void DrawDefsList(CleaningCategoryDef category, Rect rect, ref Vector2 scrollPos, List<RoomRoleDef> defs, Action<RoomRoleDef> moveLeft, Action<RoomRoleDef> moveRight)
@@ -217,14 +299,22 @@ namespace PeteTimesSix.CategorizedCleaning
 
             Scribe_Values.Look(ref hasSavedLists, "hasSavedLists", false);
 
-            var all = CleaningCategoryDef.All;
-            var loaded = new Dictionary<CleaningCategoryDef, List<RoomRoleDef>>();
-            foreach (var def in all)
+            var loadedRoles = new Dictionary<CleaningCategoryDef, List<RoomRoleDef>>();
+            foreach (var def in RoomLanes)
             {
                 List<RoomRoleDef> list = Scribe.mode == LoadSaveMode.Saving && rolesByCategory != null && rolesByCategory.TryGetValue(def, out var current) ? current : null;
                 Scribe_Collections.Look(ref list, "rooms_" + def.defName, LookMode.Def);
                 if (Scribe.mode == LoadSaveMode.LoadingVars)
-                    loaded[def] = list ?? new List<RoomRoleDef>();
+                    loadedRoles[def] = list ?? new List<RoomRoleDef>();
+            }
+
+            var loadedKinds = new Dictionary<CleaningCategoryDef, List<CleaningFilthKindDef>>();
+            foreach (var lane in FilterLanes)
+            {
+                List<CleaningFilthKindDef> list = Scribe.mode == LoadSaveMode.Saving && kindsByLane != null && kindsByLane.TryGetValue(lane, out var current) ? current : null;
+                Scribe_Collections.Look(ref list, "kinds_" + lane.defName, LookMode.Def);
+                if (Scribe.mode == LoadSaveMode.LoadingVars && list != null)
+                    loadedKinds[lane] = list;
             }
 
             if (Scribe.mode == LoadSaveMode.LoadingVars)
@@ -235,7 +325,8 @@ namespace PeteTimesSix.CategorizedCleaning
                 Scribe_Collections.Look(ref legacySterileRooms, "sterileRooms", LookMode.Def);
                 Scribe_Collections.Look(ref legacyOutdoorRooms, "outdoorRooms", LookMode.Def);
 
-                rolesByCategory = loaded;
+                rolesByCategory = loadedRoles;
+                kindsByLane = loadedKinds;
                 initialized = false;
                 EnsureInitialized(legacySterileRooms, legacyOutdoorRooms);
             }

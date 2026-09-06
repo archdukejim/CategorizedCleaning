@@ -1,6 +1,4 @@
-using HarmonyLib;
 using RimWorld;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Verse;
@@ -8,32 +6,57 @@ using Verse;
 namespace PeteTimesSix.CategorizedCleaning
 {
     /// <summary>
-    /// Per-map index of filth by cleaning category. Every spawned filth belongs to at most one category.
-    /// Also owns the per-map painted areas: the Custom zone and the per-room overrides (both are <see cref="Area_Cleaning"/>
-    /// instances living in the vanilla AreaManager, so they draw and save like any other area).
+    /// Per-map index of filth by Work-tab column, plus the per-map state behind the Cleaning tab: room pins (a room
+    /// moved to a lane by hand, with its custom settings) and the upkeep jobs custom entries ask for.
+    /// Routing for a filth: cleaning zone on its cell, else the pin of its room, else (inside the home area only) the
+    /// lane of its room type from the settings, else the indoor/outdoor default lane. The lane then decides the column,
+    /// after the lane's or entry's filth-kind filter.
     /// </summary>
     public class FilthCache : MapComponent
     {
-        private static readonly HashSet<Filth> Empty = new HashSet<Filth>();
-        private static readonly Action<AreaManager> sortAreas =
-            AccessTools.MethodDelegate<Action<AreaManager>>(AccessTools.Method(typeof(AreaManager), "SortAreas"));
+        /// <summary>A room moved to a lane by hand. Anchored to one of its cells because rooms are not persistent objects.</summary>
+        public class RoomPin : IExposable
+        {
+            public IntVec3 anchor;
+            public CleaningCategoryDef lane;
+            public CustomCleaningConfig custom = new CustomCleaningConfig();
 
-        private readonly Dictionary<CleaningCategoryDef, HashSet<Filth>> filthByCategory = new Dictionary<CleaningCategoryDef, HashSet<Filth>>();
+            public Room Room(Map map) => anchor.IsValid && anchor.InBounds(map) ? anchor.GetRoom(map) : null;
+
+            public void ExposeData()
+            {
+                Scribe_Values.Look(ref anchor, "anchor");
+                Scribe_Defs.Look(ref lane, "lane");
+                Scribe_Deep.Look(ref custom, "custom");
+                if (Scribe.mode == LoadSaveMode.PostLoadInit && custom == null)
+                    custom = new CustomCleaningConfig();
+            }
+        }
+
+        private const int UpkeepIntervalTicks = 250;
+        private static readonly HashSet<Filth> Empty = new HashSet<Filth>();
+
+        private readonly Dictionary<CleaningCategoryDef, HashSet<Filth>> filthByColumn = new Dictionary<CleaningCategoryDef, HashSet<Filth>>();
         private readonly Dictionary<Filth, CleaningCategoryDef> ownerByFilth = new Dictionary<Filth, CleaningCategoryDef>();
-        private readonly Dictionary<CleaningCategoryDef, Area_Cleaning> areas = new Dictionary<CleaningCategoryDef, Area_Cleaning>();
+        private readonly Dictionary<Room, RoomPin> pinByRoom = new Dictionary<Room, RoomPin>();
+
+        private List<RoomPin> pins = new List<RoomPin>();
+        private List<IntVec3> managedSnowCells = new List<IntVec3>();
 
         public FilthCache(Map map) : base(map) { }
 
+        public IReadOnlyList<RoomPin> Pins => pins;
+
         #region Queries
 
-        public IEnumerable<Filth> FilthFor(CleaningCategoryDef def)
+        public IEnumerable<Filth> FilthFor(CleaningCategoryDef column)
         {
-            return def != null && filthByCategory.TryGetValue(def, out var set) ? set : Empty;
+            return column != null && filthByColumn.TryGetValue(column, out var set) ? set : Empty;
         }
 
-        public int CountFor(CleaningCategoryDef def)
+        public int CountFor(CleaningCategoryDef column)
         {
-            return def != null && filthByCategory.TryGetValue(def, out var set) ? set.Count : 0;
+            return column != null && filthByColumn.TryGetValue(column, out var set) ? set.Count : 0;
         }
 
         public CleaningCategoryDef OwnerOf(Filth filth)
@@ -43,45 +66,108 @@ namespace PeteTimesSix.CategorizedCleaning
 
         public CleaningCategoryDef Classify(Filth filth)
         {
-            return Classify(filth.Position, filth.GetRoom());
+            return Classify(filth.def, filth.Position, filth.GetRoom());
         }
 
-        /// <summary>
-        /// Which category claims filth at <paramref name="cell"/> inside <paramref name="room"/>, or null if none.
-        /// Painted areas win, then the room-type lists, then the indoor/outdoor defaults. Unpainted filth outside the
-        /// home area is never claimed, matching vanilla.
-        /// </summary>
-        public CleaningCategoryDef Classify(IntVec3 cell, Room room)
+        /// <summary>The Work-tab column that claims filth of <paramref name="filthDef"/> at <paramref name="cell"/>, or null.</summary>
+        public CleaningCategoryDef Classify(ThingDef filthDef, IntVec3 cell, Room room)
         {
-            var painted = PaintedCategoryAt(cell);
-            if (painted != null)
-                return painted;
+            if (map.zoneManager.ZoneAt(cell) is Zone_Cleaning zone)
+                return ResolveColumn(zone.lane, zone.custom, filthDef);
+
+            var pin = PinFor(room);
+            if (pin != null)
+                return ResolveColumn(pin.lane, pin.custom, filthDef);
 
             if (!(map.areaManager.Home?[cell] ?? false))
                 return null;
 
-            RoomRoleDef role = room?.Role;
+            return ResolveColumn(AutomaticLane(room), null, filthDef);
+        }
+
+        /// <summary>Lane a room falls into without a pin: its room type's lane, else the indoor/outdoor default.</summary>
+        public static CleaningCategoryDef AutomaticLane(Room room)
+        {
+            var role = room?.Role;
             if (role != null && role != RoomRoleDefOf.None)
             {
                 var byRole = CategorizedCleaning_Settings.CategoryForRole(role);
                 if (byRole != null)
                     return byRole;
             }
-
             bool outdoors = room?.PsychologicallyOutdoors ?? true;
             return outdoors ? CleaningCategoryDef.OutdoorDefault : CleaningCategoryDef.IndoorDefault;
         }
 
-        public CleaningCategoryDef PaintedCategoryAt(IntVec3 cell)
+        /// <summary>Lane shown for a room in the tab: its pin, else the automatic lane.</summary>
+        public CleaningCategoryDef LaneFor(Room room)
         {
-            var all = CleaningCategoryDef.All;
-            for (int i = 0; i < all.Count; i++)
+            return PinFor(room)?.lane ?? AutomaticLane(room);
+        }
+
+        /// <summary>Work-tab column a room's filth would go to, ignoring filth-kind filters (used by CommonSense compat).</summary>
+        public CleaningCategoryDef WorkColumnForRoom(Room room)
+        {
+            var pin = PinFor(room);
+            var lane = pin?.lane ?? AutomaticLane(room);
+            if (lane == null || lane.isIgnored)
+                return null;
+            if (lane.isCustom)
+                return (pin?.custom ?? new CustomCleaningConfig()).WorkLane;
+            return lane;
+        }
+
+        private static CleaningCategoryDef ResolveColumn(CleaningCategoryDef lane, CustomCleaningConfig custom, ThingDef filthDef)
+        {
+            if (lane == null || lane.isIgnored)
+                return null;
+            if (lane.isCustom)
             {
-                var area = GetArea(all[i]);
-                if (area != null && area[cell])
-                    return all[i];
+                if (custom == null || !custom.Allows(filthDef))
+                    return null;
+                return custom.WorkLane;
             }
-            return null;
+            if (lane.workGiver == null)
+                return null;
+            return CategorizedCleaning_Settings.LaneAllows(lane, filthDef) ? lane : null;
+        }
+
+        #endregion
+
+        #region Room pins
+
+        public RoomPin PinFor(Room room)
+        {
+            if (room == null || pins.Count == 0)
+                return null;
+            if (pinByRoom.TryGetValue(room, out var cached))
+                return cached;
+
+            RoomPin found = null;
+            for (int i = 0; i < pins.Count; i++)
+            {
+                if (pins[i].Room(map) == room)
+                {
+                    found = pins[i];
+                    break;
+                }
+            }
+            pinByRoom[room] = found;
+            return found;
+        }
+
+        /// <summary>Pins a room to a lane (null lane = back to automatic). Keeps the room's custom settings across moves.</summary>
+        public void PinRoom(Room room, CleaningCategoryDef lane)
+        {
+            if (room == null || room.CellCount == 0)
+                return;
+            var existing = PinFor(room);
+            var custom = existing?.custom ?? new CustomCleaningConfig();
+            pins.RemoveAll(p => p == existing || p.Room(map) == room);
+            if (lane != null)
+                pins.Add(new RoomPin { anchor = room.Cells.First(), lane = lane, custom = custom });
+            pinByRoom.Clear();
+            Notify_RoomChanged(room);
         }
 
         #endregion
@@ -108,7 +194,7 @@ namespace PeteTimesSix.CategorizedCleaning
                 return;
 
             if (oldOwner != null)
-                filthByCategory[oldOwner].Remove(filth);
+                filthByColumn[oldOwner].Remove(filth);
 
             if (newOwner != null)
             {
@@ -127,7 +213,7 @@ namespace PeteTimesSix.CategorizedCleaning
                 return;
             if (ownerByFilth.TryGetValue(filth, out var owner))
             {
-                filthByCategory[owner].Remove(filth);
+                filthByColumn[owner].Remove(filth);
                 ownerByFilth.Remove(filth);
             }
         }
@@ -148,15 +234,25 @@ namespace PeteTimesSix.CategorizedCleaning
         {
             if (room == null)
                 return;
+            pinByRoom.Clear();
             foreach (var filth in room.ContainedThings<Filth>().ToList())
                 Reclassify(filth);
         }
 
+        public void Notify_ZoneChanged(Zone_Cleaning zone)
+        {
+            if (zone == null)
+                return;
+            for (int i = zone.cells.Count - 1; i >= 0; i--)
+                Notify_CellChanged(zone.cells[i]);
+        }
+
         public void RebuildAll()
         {
-            foreach (var set in filthByCategory.Values)
+            foreach (var set in filthByColumn.Values)
                 set.Clear();
             ownerByFilth.Clear();
+            pinByRoom.Clear();
 
             var allFilth = map.listerThings.ThingsInGroup(ThingRequestGroup.Filth);
             for (int i = 0; i < allFilth.Count; i++)
@@ -174,104 +270,135 @@ namespace PeteTimesSix.CategorizedCleaning
                 map.GetComponent<FilthCache>()?.RebuildAll();
         }
 
-        private HashSet<Filth> GetOrCreateSet(CleaningCategoryDef def)
+        private HashSet<Filth> GetOrCreateSet(CleaningCategoryDef column)
         {
-            if (!filthByCategory.TryGetValue(def, out var set))
+            if (!filthByColumn.TryGetValue(column, out var set))
             {
                 set = new HashSet<Filth>();
-                filthByCategory[def] = set;
+                filthByColumn[column] = set;
             }
             return set;
         }
 
         #endregion
 
-        #region Painted areas
+        #region Upkeep jobs for custom entries (cut plants, clear snow, haul debris)
 
-        /// <summary>The painted area of a category on this map, if anything has been painted into it yet.</summary>
-        public Area_Cleaning GetArea(CleaningCategoryDef def)
+        public override void MapComponentTick()
         {
-            if (def == null)
-                return null;
-            if (areas.TryGetValue(def, out var cached) && cached != null)
-                return cached;
-
-            var allAreas = map.areaManager.AllAreas;
-            for (int i = 0; i < allAreas.Count; i++)
-            {
-                if (allAreas[i] is Area_Cleaning cleaningArea && cleaningArea.def == def)
-                {
-                    areas[def] = cleaningArea;
-                    return cleaningArea;
-                }
-            }
-            return null;
-        }
-
-        /// <summary>Gets the painted area of a category on this map, creating it on first use.</summary>
-        public Area_Cleaning EnsureArea(CleaningCategoryDef def)
-        {
-            var area = GetArea(def);
-            if (area != null)
-                return area;
-
-            area = new Area_Cleaning(map.areaManager, def);
-            map.areaManager.AllAreas.Add(area);
-            sortAreas(map.areaManager);
-            areas[def] = area;
-            return area;
-        }
-
-        /// <summary>
-        /// Paints every cell of a room into <paramref name="def"/>'s area (and out of every other category's area).
-        /// Pass null to clear the override so the room is routed automatically again.
-        /// </summary>
-        public void PaintRoom(Room room, CleaningCategoryDef def)
-        {
-            if (room == null)
+            if (Find.TickManager.TicksGame % UpkeepIntervalTicks != 7)
                 return;
-            var cells = room.Cells.ToList();
-            foreach (var category in CleaningCategoryDef.All)
+            RunUpkeep();
+        }
+
+        /// <summary>Cells of every custom entry that wants at least one upkeep job, with the config that asked for it.</summary>
+        private IEnumerable<(CustomCleaningConfig config, IEnumerable<IntVec3> cells)> CustomEntries()
+        {
+            foreach (var zone in map.zoneManager.AllZones)
             {
-                bool paint = category == def;
-                var area = paint ? EnsureArea(category) : GetArea(category);
-                if (area == null)
-                    continue;
-                for (int i = 0; i < cells.Count; i++)
+                if (zone is Zone_Cleaning cleaningZone && cleaningZone.IsCustom)
+                    yield return (cleaningZone.custom, cleaningZone.cells);
+            }
+            for (int i = pins.Count - 1; i >= 0; i--)
+            {
+                var pin = pins[i];
+                var room = pin.Room(map);
+                if (room == null || room.PsychologicallyOutdoors || room.TouchesMapEdge)
                 {
-                    if (area[cells[i]] != paint)
-                        area[cells[i]] = paint;
+                    // Anchor no longer sits in an enclosed room (wall built over it, room opened up): the pin is dead.
+                    pins.RemoveAt(i);
+                    pinByRoom.Clear();
+                    continue;
+                }
+                if (pin.lane != null && pin.lane.isCustom)
+                    yield return (pin.custom, room.Cells);
+            }
+        }
+
+        private void RunUpkeep()
+        {
+            var snowWanted = new HashSet<IntVec3>();
+            foreach (var (config, cells) in CustomEntries().ToList())
+            {
+                if (!config.NeedsUpkeep)
+                    continue;
+                foreach (var cell in cells)
+                {
+                    if (config.clearSnow)
+                        snowWanted.Add(cell);
+                    if (config.cutPlants || config.haulDebris)
+                        DesignateUpkeepAt(cell, config);
+                }
+            }
+            SyncSnowArea(snowWanted);
+        }
+
+        private void DesignateUpkeepAt(IntVec3 cell, CustomCleaningConfig config)
+        {
+            var designations = map.designationManager;
+            var things = cell.GetThingList(map);
+            for (int i = 0; i < things.Count; i++)
+            {
+                var thing = things[i];
+                if (config.cutPlants && thing is Plant plant && !plant.sown && !plant.def.plant.IsTree
+                    && plant.def.plant.harvestedThingDef == null && designations.DesignationOn(plant) == null)
+                {
+                    designations.AddDesignation(new Designation(plant, DesignationDefOf.CutPlant));
+                }
+                else if (config.haulDebris && thing.def.designateHaulable && !thing.IsForbidden(Faction.OfPlayer)
+                    && !thing.IsInValidStorage() && designations.DesignationOn(thing, DesignationDefOf.Haul) == null)
+                {
+                    designations.AddDesignation(new Designation(thing, DesignationDefOf.Haul));
                 }
             }
         }
 
-        /// <summary>The category most of a room's cells are painted into, or null when the room is unpainted.</summary>
-        public CleaningCategoryDef OverrideFor(Room room)
+        /// <summary>Keeps the vanilla snow-clear area in step with the custom entries that asked for snow clearing, touching only cells we added.</summary>
+        private void SyncSnowArea(HashSet<IntVec3> wanted)
         {
-            if (room == null)
-                return null;
-            CleaningCategoryDef best = null;
-            int bestCount = 0;
-            foreach (var category in CleaningCategoryDef.All)
+            var snowArea = map.areaManager.SnowOrSandClear;
+            if (snowArea == null)
+                return;
+            for (int i = managedSnowCells.Count - 1; i >= 0; i--)
             {
-                var area = GetArea(category);
-                if (area == null)
-                    continue;
-                int count = 0;
-                foreach (var cell in room.Cells)
+                var cell = managedSnowCells[i];
+                if (!wanted.Contains(cell))
                 {
-                    if (area[cell])
-                        count++;
-                }
-                if (count > bestCount)
-                {
-                    bestCount = count;
-                    best = category;
+                    if (cell.InBounds(map) && snowArea[cell])
+                        snowArea[cell] = false;
+                    managedSnowCells.RemoveAt(i);
                 }
             }
-            return best;
+            foreach (var cell in wanted)
+            {
+                if (!snowArea[cell])
+                {
+                    snowArea[cell] = true;
+                    managedSnowCells.Add(cell);
+                }
+                else if (!managedSnowCells.Contains(cell))
+                {
+                    // Already painted by the player: leave ownership with them.
+                }
+            }
         }
 
         #endregion
+
+        public override void ExposeData()
+        {
+            base.ExposeData();
+            Scribe_Collections.Look(ref pins, "pins", LookMode.Deep);
+            Scribe_Collections.Look(ref managedSnowCells, "managedSnowCells", LookMode.Value);
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                if (pins == null)
+                    pins = new List<RoomPin>();
+                pins.RemoveAll(p => p == null || p.lane == null);
+                if (managedSnowCells == null)
+                    managedSnowCells = new List<IntVec3>();
+                pinByRoom.Clear();
+            }
+        }
     }
 }
