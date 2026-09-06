@@ -1,60 +1,155 @@
-﻿using RimWorld;
+using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 
 namespace PeteTimesSix.CategorizedCleaning
 {
-    public class CategorizedCleaning_Settings: ModSettings
+    /// <summary>
+    /// One column per cleaning category; every room type sits in exactly one column. Unlisted types (from newly added
+    /// mods, for instance) default to the indoor category so the columns always show the full set.
+    /// </summary>
+    public class CategorizedCleaning_Settings : ModSettings
     {
-        public const float LIST_MARGIN = 20;
-        public const float LIST_DESIRED_HEIGHT = 400;
-        public const float LIST_DESIRED_WIDTH = 260;
-
+        public const float LIST_DESIRED_HEIGHT = 440f;
         public const float SCROLLBAR_WIDTH = 18f;
-        public const float DEF_BUTTON_HEIGHT = 32;
-        public const float ARROW_WIDTH = 32;
+        public const float DEF_BUTTON_HEIGHT = 32f;
+        public const float ARROW_WIDTH = 32f;
 
-        public static List<RoomRoleDef> sterileRooms = new() { RoomRoleDefOf.Hospital, RoomRoleDefOf.Laboratory, RoomRoleDefOf_Custom.Kitchen };
-        public static List<RoomRoleDef> outdoorRooms = new() { RoomRoleDefOf_Custom.Barn };
+        private const string LEGACY_STERILE_DEFNAME = "CategorizedCleaning_CleanRooms";
+        private const string LEGACY_OUTDOOR_DEFNAME = "CategorizedCleaning_HomeArea";
 
-        private static RoomRoleDef[] noneRoom = new RoomRoleDef[] { RoomRoleDefOf.None };
+        private static Dictionary<CleaningCategoryDef, List<RoomRoleDef>> rolesByCategory;
+        private static Dictionary<RoomRoleDef, CleaningCategoryDef> categoryByRole = new Dictionary<RoomRoleDef, CleaningCategoryDef>();
+        private static bool initialized;
+        private static bool hasSavedLists;
 
-        private Vector2 leftListScrollPos = new Vector2();
-        private Vector2 middleListScrollPos = new Vector2();
-        private Vector2 rightListScrollPos = new Vector2();
+        private Vector2[] scrollPositions = new Vector2[0];
+
+        public static List<RoomRoleDef> RolesFor(CleaningCategoryDef def)
+        {
+            EnsureInitialized();
+            return rolesByCategory != null && def != null && rolesByCategory.TryGetValue(def, out var list) ? list : new List<RoomRoleDef>();
+        }
+
+        public static CleaningCategoryDef CategoryForRole(RoomRoleDef role)
+        {
+            EnsureInitialized();
+            return role != null && categoryByRole.TryGetValue(role, out var def) ? def : null;
+        }
+
+        public static void MoveRole(RoomRoleDef role, CleaningCategoryDef to)
+        {
+            EnsureInitialized();
+            if (role == null || to == null || rolesByCategory == null || !rolesByCategory.ContainsKey(to))
+                return;
+            foreach (var list in rolesByCategory.Values)
+                list.Remove(role);
+            rolesByCategory[to].Add(role);
+            RebuildRoleMap();
+        }
+
+        private static void EnsureInitialized(List<RoomRoleDef> legacySterileRooms = null, List<RoomRoleDef> legacyOutdoorRooms = null)
+        {
+            if (initialized)
+                return;
+            var all = CleaningCategoryDef.All;
+            if (all.Count == 0)
+                return; // defs not loaded yet; try again on the next access
+
+            if (rolesByCategory == null)
+                rolesByCategory = new Dictionary<CleaningCategoryDef, List<RoomRoleDef>>();
+            foreach (var key in rolesByCategory.Keys.Where(k => k == null || !all.Contains(k)).ToList())
+                rolesByCategory.Remove(key);
+            foreach (var def in all)
+            {
+                if (!rolesByCategory.TryGetValue(def, out var list) || list == null)
+                    rolesByCategory[def] = new List<RoomRoleDef>();
+            }
+
+            bool fresh = !hasSavedLists && legacySterileRooms == null && legacyOutdoorRooms == null;
+            if (fresh)
+            {
+                foreach (var def in all)
+                    rolesByCategory[def].AddRange(def.defaultRoomRoles);
+            }
+            else
+            {
+                // Settings written by the pre-column versions of the mod only knew sterile and outdoor rooms.
+                if (legacySterileRooms != null && all.FirstOrDefault(d => d.defName == LEGACY_STERILE_DEFNAME) is CleaningCategoryDef sterile)
+                    rolesByCategory[sterile].AddRange(legacySterileRooms);
+                if (legacyOutdoorRooms != null && all.FirstOrDefault(d => d.defName == LEGACY_OUTDOOR_DEFNAME) is CleaningCategoryDef outdoor)
+                    rolesByCategory[outdoor].AddRange(legacyOutdoorRooms);
+            }
+
+            // Every role in exactly one column; earlier columns win duplicates; unlisted roles go to the indoor default.
+            var seen = new HashSet<RoomRoleDef>();
+            foreach (var def in all)
+                rolesByCategory[def].RemoveAll(r => r == null || r == RoomRoleDefOf.None || !seen.Add(r));
+
+            var fallback = CleaningCategoryDef.IndoorDefault ?? all[0];
+            foreach (var role in DefDatabase<RoomRoleDef>.AllDefsListForReading)
+            {
+                if (role != RoomRoleDefOf.None && !seen.Contains(role))
+                    rolesByCategory[fallback].Add(role);
+            }
+
+            RebuildRoleMap();
+            initialized = true;
+        }
+
+        private static void RebuildRoleMap()
+        {
+            categoryByRole.Clear();
+            if (rolesByCategory == null)
+                return;
+            foreach (var pair in rolesByCategory)
+            {
+                foreach (var role in pair.Value)
+                    categoryByRole[role] = pair.Key;
+            }
+        }
+
+        /// <summary>Called when the settings window closes: re-index the filth on every map with the new room lists.</summary>
+        public static void ApplyToGame()
+        {
+            EnsureInitialized();
+            RebuildRoleMap();
+            FilthCache.RebuildAllMaps();
+        }
+
+        #region UI
 
         public void DoSettingsWindowContents(Rect inRect)
         {
-            Listing_Standard listing = new Listing_Standard();
+            EnsureInitialized();
+            var all = CleaningCategoryDef.All;
+            if (scrollPositions.Length != all.Count)
+                scrollPositions = new Vector2[all.Count];
 
-            listing.Begin(inRect);
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.UpperLeft;
 
-            //listing.Label("CC_Settings_Header".TranslateSimple());
-            
-            var listsRect = listing.GetRect(LIST_DESIRED_HEIGHT);
-            listsRect = listsRect.MiddlePartPixels(Math.Min(inRect.width, LIST_DESIRED_WIDTH * 3), listsRect.height);
+            Rect hintRect = inRect.TopPartPixels(48f);
+            Widgets.Label(hintRect, "CC_Settings_Hint".Translate());
 
-            var regularRooms = DefDatabase<RoomRoleDef>.AllDefsListForReading.Except(sterileRooms).Except(outdoorRooms).Except(noneRoom).ToList();
+            float listsHeight = Mathf.Min(LIST_DESIRED_HEIGHT, inRect.height - hintRect.height - 8f);
+            Rect listsRect = new Rect(inRect.x, hintRect.yMax + 8f, inRect.width, listsHeight);
+            float columnWidth = listsRect.width / all.Count;
 
-            DrawDefsList("CC_Settings_SterileRooms", listsRect.LeftPartPixels(listsRect.width / 3).ContractedBy(1f), ref leftListScrollPos, sterileRooms, 
-                moveRight: def => sterileRooms.Remove(def));
-
-            DrawDefsList("CC_Settings_RegularRooms", listsRect.MiddlePartPixels(listsRect.width / 3, listsRect.height).ContractedBy(1f), ref middleListScrollPos, regularRooms, 
-                moveLeft: def => sterileRooms.Add(def), 
-                moveRight: def => outdoorRooms.Add(def));
-
-            DrawDefsList("CC_Settings_OutdoorRooms", listsRect.RightPartPixels(listsRect.width / 3).ContractedBy(1f), ref rightListScrollPos, outdoorRooms, 
-                moveLeft: def => outdoorRooms.Remove(def));
-
-            listing.End();
+            for (int i = 0; i < all.Count; i++)
+            {
+                var def = all[i];
+                Rect column = new Rect(listsRect.x + columnWidth * i, listsRect.y, columnWidth, listsRect.height).ContractedBy(2f);
+                Action<RoomRoleDef> moveLeft = i > 0 ? role => MoveRole(role, all[i - 1]) : (Action<RoomRoleDef>)null;
+                Action<RoomRoleDef> moveRight = i < all.Count - 1 ? role => MoveRole(role, all[i + 1]) : (Action<RoomRoleDef>)null;
+                DrawDefsList(def, column, ref scrollPositions[i], RolesFor(def).ToList(), moveLeft, moveRight);
+            }
         }
 
-        public void DrawDefsList<T>(string label, Rect rect, ref Vector2 scrollPos, List<T> defs, Action<T> moveLeft = null, Action<T> moveRight = null) where T : Def
+        private void DrawDefsList(CleaningCategoryDef category, Rect rect, ref Vector2 scrollPos, List<RoomRoleDef> defs, Action<RoomRoleDef> moveLeft, Action<RoomRoleDef> moveRight)
         {
             Widgets.DrawBoxSolidWithOutline(rect, Color.black, Color.grey);
 
@@ -62,7 +157,10 @@ namespace PeteTimesSix.CategorizedCleaning
             Text.Anchor = TextAnchor.LowerCenter;
 
             var labelRect = rect.TopPartPixels(24f);
-            Widgets.LabelFit(labelRect, label.TranslateSimple());
+            GUI.color = category.color;
+            Widgets.LabelFit(labelRect, category.LabelCap);
+            GUI.color = Color.white;
+            TooltipHandler.TipRegion(labelRect, category.description);
             Widgets.DrawLineHorizontal(labelRect.x, labelRect.y + labelRect.height, labelRect.width);
 
             rect.y += labelRect.height + 2;
@@ -89,7 +187,7 @@ namespace PeteTimesSix.CategorizedCleaning
             Widgets.EndScrollView();
         }
 
-        public void DrawDefButton<T>(Rect buttonRect, T def, Action<T> moveLeft, Action<T> moveRight) where T : Def
+        private void DrawDefButton(Rect buttonRect, RoomRoleDef def, Action<RoomRoleDef> moveLeft, Action<RoomRoleDef> moveRight)
         {
             Widgets.DrawHighlightIfMouseover(buttonRect);
             Widgets.LabelFit(buttonRect, def.LabelCap);
@@ -105,24 +203,42 @@ namespace PeteTimesSix.CategorizedCleaning
             }
         }
 
+        #endregion
+
         public override void ExposeData()
         {
             base.ExposeData();
 
-            InitializeCollectionsIfNeeded();
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                EnsureInitialized();
+                hasSavedLists = true;
+            }
 
-            Scribe_Collections.Look(ref sterileRooms, "sterileRooms", LookMode.Def);
-            Scribe_Collections.Look(ref outdoorRooms, "outdoorRooms", LookMode.Def);
+            Scribe_Values.Look(ref hasSavedLists, "hasSavedLists", false);
 
-            InitializeCollectionsIfNeeded();
-        }
+            var all = CleaningCategoryDef.All;
+            var loaded = new Dictionary<CleaningCategoryDef, List<RoomRoleDef>>();
+            foreach (var def in all)
+            {
+                List<RoomRoleDef> list = Scribe.mode == LoadSaveMode.Saving && rolesByCategory != null && rolesByCategory.TryGetValue(def, out var current) ? current : null;
+                Scribe_Collections.Look(ref list, "rooms_" + def.defName, LookMode.Def);
+                if (Scribe.mode == LoadSaveMode.LoadingVars)
+                    loaded[def] = list ?? new List<RoomRoleDef>();
+            }
 
-        public void InitializeCollectionsIfNeeded() 
-        {
-            if (sterileRooms == null)
-                sterileRooms = new() { RoomRoleDefOf.Hospital, RoomRoleDefOf.Laboratory, RoomRoleDefOf_Custom.Kitchen };
-            if (outdoorRooms == null)
-                outdoorRooms = new() { RoomRoleDefOf_Custom.Barn };
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                // Settings written by the pre-column versions of the mod.
+                List<RoomRoleDef> legacySterileRooms = null;
+                List<RoomRoleDef> legacyOutdoorRooms = null;
+                Scribe_Collections.Look(ref legacySterileRooms, "sterileRooms", LookMode.Def);
+                Scribe_Collections.Look(ref legacyOutdoorRooms, "outdoorRooms", LookMode.Def);
+
+                rolesByCategory = loaded;
+                initialized = false;
+                EnsureInitialized(legacySterileRooms, legacyOutdoorRooms);
+            }
         }
     }
 }

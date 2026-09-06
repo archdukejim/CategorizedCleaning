@@ -1,13 +1,6 @@
-﻿using HarmonyLib;
-using RimWorld;
-using System;
-using System.CodeDom.Compiler;
+using HarmonyLib;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection.Emit;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 using Verse;
 using static HarmonyLib.AccessTools;
 
@@ -19,17 +12,14 @@ namespace PeteTimesSix.CategorizedCleaning.HarmonyPatches
         [HarmonyPrefix]
         public static void Room_Notify_RoomShapeChanged_Prefix(Room __instance)
         {
-            var cache = __instance.Map.GetComponent<FilthCache>();
-            var filths = __instance.ContainedThings<Filth>().ToList();
-            foreach (Filth filth in filths)
-            {
-                cache.RemoveFilth(filth);
-                cache.AddFilth(filth);
-            }
+            __instance.Map?.GetComponent<FilthCache>()?.Notify_RoomChanged(__instance);
         }
     }
 
-    
+    /// <summary>
+    /// Room roles drive categorization, so filth must be reclassified whenever a room's role actually changes.
+    /// Injects a compare-and-notify around the single write to Room.role inside UpdateRoomStatsAndRole.
+    /// </summary>
     [HarmonyPatch(typeof(Room), "UpdateRoomStatsAndRole")]
     public static class Room_UpdateRoomStatsAndRole_Patches
     {
@@ -55,77 +45,29 @@ namespace PeteTimesSix.CategorizedCleaning.HarmonyPatches
                 new CodeInstruction(OpCodes.Call, Method(typeof(Room_UpdateRoomStatsAndRole_Patches), nameof(PostChangeCompare))),
             };
 
-
             foreach (CodeInstruction instruction in instructions)
             {
                 bool isWriteToRoleField = toMatch.opcode == instruction.opcode && toMatch.operand == instruction.operand;
                 if (isWriteToRoleField)
                 {
                     foreach (var prefixInstruction in prefix)
-                    {
                         yield return prefixInstruction;
-                    }
                 }
 
                 yield return instruction;
 
                 if (isWriteToRoleField)
                 {
-                    foreach (var prefixInstruction in postfix)
-                    {
-                        yield return prefixInstruction;
-                    }
+                    foreach (var postfixInstruction in postfix)
+                        yield return postfixInstruction;
                 }
             }
         }
 
         public static void PostChangeCompare(Room room, RoomRoleDef first, RoomRoleDef second)
         {
-            //Log.Message($"room {room?.ToString() ?? "NULL"} type comparing {first?.defName ?? "NULL"} to {second?.defName ?? "NULL"}");
             if (first != second)
-            {
-                var filths = room.ContainedThings<Filth>();
-                var cache = room.Map.GetComponent<FilthCache>();
-                foreach (Filth filth in filths)
-                {
-                    cache.RemoveFilth(filth);
-                    cache.AddFilth(filth);
-                }
-            }
+                room.Map?.GetComponent<FilthCache>()?.Notify_RoomChanged(room);
         }
-
-        /*public static FieldRef<Room, RoomRoleDef> field_roleInt;
-
-        public class State
-        {
-            public RoomRoleDef rolePre;
-            public List<Filth> filthsPre = new();
-        }
-
-        static Room_UpdateRoomStatsAndRole_Patches() 
-        {
-            field_roleInt = FieldRefAccess<Room, RoomRoleDef>("role");
-        }
-
-        [HarmonyPrefix]
-        public static void Room_UpdateRoomStatsAndRole_Prefix(Room __instance, out State __state)
-        {
-            __state = new State() { rolePre = field_roleInt(__instance) };
-            __state.filthsPre.AddRange(__instance.ContainedThings<Filth>());
-            Log.Message("call coming from");
-        }
-
-        [HarmonyPostfix]
-        public static void Room_UpdateRoomStatsAndRole_Postfix(Room __instance, State __state)
-        {
-            if (__state.rolePre != field_roleInt(__instance))
-            {
-                var cache = __instance.Map.GetComponent<FilthCache>();
-                foreach (Filth filth in __state.filthsPre)
-                {
-                    cache.UpdateFilth(filth);
-                }
-            }
-        }*/
     }
 }

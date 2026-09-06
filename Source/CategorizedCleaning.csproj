@@ -35,8 +35,14 @@
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Areas\Area_Cleaning.cs" />
     <Compile Include="CategorizedCleaning_Debug.cs" />
+    <Compile Include="CategorizedCleaning_DebugActions.cs" />
+    <Compile Include="Defs\CleaningCategoryDef.cs" />
+    <Compile Include="Designators\Designator_AreaCleaning.cs" />
     <Compile Include="FilthCache.cs" />
+    <Compile Include="FloatMenu\FloatMenuOptionProvider_RoomCleaningCategory.cs" />
+    <Compile Include="HarmonyPatches\Area_Patches.cs" />
     <Compile Include="HarmonyPatches\DebugDrawInjection.cs" />
     <Compile Include="HarmonyPatches\ListerFilthInHomeArea_Patches.cs" />
     <Compile Include="HarmonyPatches\Pawn_WorkSettings_ExposeData_Patches.cs" />
@@ -44,12 +50,8 @@
     <Compile Include="ModCompat\CommonSense.cs" />
     <Compile Include="PatchOps\PatchOperationAddOrReplace.cs" />
     <Compile Include="PatchOps\SharedUtils.cs" />
-    <Compile Include="RoomRoleDefOf_Custom.cs" />
     <Compile Include="Textures_Custom.cs" />
-    <Compile Include="Helpers.cs" />
-    <Compile Include="WorkGivers\WorkGiver_CleanFilth_Indoors.cs" />
-    <Compile Include="WorkGivers\WorkGiver_CleanFilth_Outdoors.cs" />
-    <Compile Include="WorkGivers\WorkGiver_CleanFilth_Sterile.cs" />
+    <Compile Include="WorkGivers\WorkGiver_CleanFilth_Categorized.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="CategorizedCleaning_Mod.cs" />
     <Compile Include="CategorizedCleaning_Settings.cs" />

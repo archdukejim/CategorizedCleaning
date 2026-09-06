@@ -1,9 +1,4 @@
-﻿using HarmonyLib;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using HarmonyLib;
 using UnityEngine;
 using Verse;
 
@@ -33,6 +28,13 @@ namespace PeteTimesSix.CategorizedCleaning
         {
             Settings.DoSettingsWindowContents(inRect);
         }
+
+        /// <summary>Called when the settings window closes: push the edited categories into the live defs and maps.</summary>
+        public override void WriteSettings()
+        {
+            base.WriteSettings();
+            CategorizedCleaning_Settings.ApplyToGame();
+        }
     }
 
 
@@ -42,6 +44,7 @@ namespace PeteTimesSix.CategorizedCleaning
         static CategorizedCleaning_PostInit()
         {
             CategorizedCleaning_Mod.Settings = CategorizedCleaning_Mod.ModSingleton.GetSettings<CategorizedCleaning_Settings>();
+            CategorizedCleaning_Settings.ApplyToGame();
         }
     }
 

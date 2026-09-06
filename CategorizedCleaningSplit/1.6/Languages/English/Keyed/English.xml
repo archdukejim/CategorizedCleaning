@@ -1,8 +1,20 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <LanguageData>
 	<CategorizedCleaning_ModTitle>Categorized Cleaning</CategorizedCleaning_ModTitle>
-	
-	<CC_Settings_SterileRooms>Rooms considered sterile</CC_Settings_SterileRooms>
-	<CC_Settings_RegularRooms>Rooms</CC_Settings_RegularRooms>
-	<CC_Settings_OutdoorRooms>Rooms considered outdoors</CC_Settings_OutdoorRooms>
+
+	<!-- Settings -->
+	<CC_Settings_Hint>Each room type belongs to one cleaning column; use the arrows to move it. Rooms of that type are cleaned by the column's work type. To override a single room, select a colonist and right-click inside the room. The custom zone is painted from Architect &gt; Zone.</CC_Settings_Hint>
+
+	<!-- Right-click room override; {0} is a column name -->
+	<CC_RoomOverride_Menu>Cleaning column for this room ({0})...</CC_RoomOverride_Menu>
+	<CC_RoomOverride_AutoShort>automatic: {0}</CC_RoomOverride_AutoShort>
+	<CC_RoomOverride_Auto>Automatic (currently {0})</CC_RoomOverride_Auto>
+	<CC_RoomOverride_Set>Always clean as: {0}</CC_RoomOverride_Set>
+
+	<!-- Designators and areas -->
+	<CC_DesignatorCustomZoneExpand>Expand custom cleaning zone</CC_DesignatorCustomZoneExpand>
+	<CC_DesignatorCustomZoneExpandDesc>Paint the custom cleaning zone. Filth inside it is cleaned by the "custom" work column, even outside the home area.</CC_DesignatorCustomZoneExpandDesc>
+	<CC_DesignatorCustomZoneClear>Clear custom cleaning zone</CC_DesignatorCustomZoneClear>
+	<CC_DesignatorCustomZoneClearDesc>Remove cells from the custom cleaning zone.</CC_DesignatorCustomZoneClearDesc>
+	<CC_CleaningArea>Cleaning zone</CC_CleaningArea>
 </LanguageData>

@@ -6,6 +6,7 @@
 	  <value>
 		<li>CleaningSterile</li>
 		<li>CleaningIndoors</li>
+		<li>CleaningCustom</li>
 	  </value>
 	</Operation>
 	<Operation Class="PTS.PatchOperationAddIfModPresent">
@@ -15,6 +16,7 @@
         <mechWorkTypePriorities>
           <CleaningSterile>1</CleaningSterile>
           <CleaningIndoors>2</CleaningIndoors>
+          <CleaningCustom>3</CleaningCustom>
         </mechWorkTypePriorities>
 	  </value>
 	</Operation>

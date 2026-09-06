@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+
+  <!--
+    The four cleaning columns. Filth is routed by: (1) painted cells (the Custom zone, or a room the player
+    right-clicked into a category), (2) the room type lists in the mod settings (seeded from defaultRoomRoles),
+    (3) indoorDefault / outdoorDefault for everything else inside the home area.
+  -->
+
+  <PeteTimesSix.CategorizedCleaning.CleaningCategoryDef>
+    <defName>CategorizedCleaning_CleanRooms</defName>
+    <label>clean rooms</label>
+    <description>Rooms that must stay clean. Kitchens, hospitals and laboratories by default, plus any room you assign here.</description>
+    <workGiver>CategorizedCleaning_CleanFilth_Sterile</workGiver>
+    <order>0</order>
+    <defaultRoomRoles>
+      <li>Hospital</li>
+      <li>Laboratory</li>
+      <li>Kitchen</li>
+    </defaultRoomRoles>
+    <color>(0.25, 0.45, 1.0)</color>
+    <areaLabel>Clean rooms (assigned)</areaLabel>
+  </PeteTimesSix.CategorizedCleaning.CleaningCategoryDef>
+
+  <PeteTimesSix.CategorizedCleaning.CleaningCategoryDef>
+    <defName>CategorizedCleaning_Interior</defName>
+    <label>interior</label>
+    <description>Every other enclosed room inside the home area.</description>
+    <workGiver>CategorizedCleaning_CleanFilth_Indoors</workGiver>
+    <order>10</order>
+    <indoorDefault>true</indoorDefault>
+    <color>(0.2, 1.0, 0.2)</color>
+    <areaLabel>Interior (assigned)</areaLabel>
+  </PeteTimesSix.CategorizedCleaning.CleaningCategoryDef>
+
+  <PeteTimesSix.CategorizedCleaning.CleaningCategoryDef>
+    <defName>CategorizedCleaning_Custom</defName>
+    <label>custom</label>
+    <description>The custom cleaning zone painted from Architect &gt; Zone, plus any room type or room you assign here.</description>
+    <workGiver>CategorizedCleaning_CleanFilth_Custom</workGiver>
+    <order>20</order>
+    <paintable>true</paintable>
+    <color>(1.0, 0.6, 0.1)</color>
+    <areaLabel>Custom cleaning zone</areaLabel>
+  </PeteTimesSix.CategorizedCleaning.CleaningCategoryDef>
+
+  <PeteTimesSix.CategorizedCleaning.CleaningCategoryDef>
+    <defName>CategorizedCleaning_HomeArea</defName>
+    <label>home area</label>
+    <description>Filth in the open inside the home area, plus rooms the game counts as outdoors and any room type you assign here (barns by default).</description>
+    <workGiver>CleanFilth</workGiver>
+    <order>30</order>
+    <outdoorDefault>true</outdoorDefault>
+    <defaultRoomRoles>
+      <li>Barn</li>
+    </defaultRoomRoles>
+    <color>(1.0, 0.2, 0.2)</color>
+    <areaLabel>Home area cleaning (assigned)</areaLabel>
+  </PeteTimesSix.CategorizedCleaning.CleaningCategoryDef>
+
+</Defs>

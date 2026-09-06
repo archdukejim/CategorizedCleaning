@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
 	<name>Categorized Cleaning - Split</name>
-	<author>PeteTimesSix</author>  
+	<author>PeteTimesSix</author>
 	<packageId>PeteTimesSix.CategorizedCleaning.Split</packageId>
 	<supportedVersions>
 		<li>1.6</li>
@@ -23,12 +23,13 @@
 		<li>brrainz.harmony</li>
 	</loadAfter>
 	<description>
-Splits the cleaning work type into three:
+Splits the cleaning work type into four:
 
-One for sterile rooms (kitchens, hospital and laboratories)
+One for clean rooms (kitchens, hospitals and laboratories)
 One for indoor cleaning
-One for outdoor cleaning
+One for a custom cleaning zone you paint yourself (Architect &gt; Zone)
+One for outdoor cleaning in the home area
 
-Each can be individually prioritized.
+Each can be individually prioritized. The mod settings decide which auto-detected room types belong to which column, and you can pin a single room to a column by selecting a colonist and right-clicking inside the room.
 	</description>
 </ModMetaData>

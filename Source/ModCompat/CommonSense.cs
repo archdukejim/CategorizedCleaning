@@ -1,13 +1,10 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
-using System.Text;
-using System.Threading.Tasks;
 using Verse;
-using Verse.AI;
 
 namespace PeteTimesSix.CategorizedCleaning.ModCompat
 {
@@ -15,10 +12,8 @@ namespace PeteTimesSix.CategorizedCleaning.ModCompat
     public static class CommonSense
     {
         public static bool active = false;
-        
+
         public static Func<WorkGiverDef> getter_CleanFilth;
-        public static WorkGiverDef cleanFilthSterile;
-        public static WorkGiverDef cleanFilthIndoors;
 
         static CommonSense()
         {
@@ -98,17 +93,19 @@ namespace PeteTimesSix.CategorizedCleaning.ModCompat
             return codeMatcher.InstructionEnumeration();
         }
 
+        /// <summary>
+        /// The work giver whose category would claim filth in this room. Falls back to CommonSense's own getter
+        /// (which other mods may have patched) when the room resolves to the vanilla CleanFilth giver or to nothing.
+        /// </summary>
         public static WorkGiverDef GetWorkGiver(Room room)
         {
-            if (cleanFilthSterile == null)
-                cleanFilthSterile = DefDatabase<WorkGiverDef>.GetNamed("CategorizedCleaning_CleanFilth_Sterile");
-            if (room.IsSterileRoom())
-                return cleanFilthSterile;
-
-            if (cleanFilthIndoors == null)
-                cleanFilthIndoors = DefDatabase<WorkGiverDef>.GetNamed("CategorizedCleaning_CleanFilth_Indoors");
-            if (!room.IsOutsideOrBarn())
-                return cleanFilthIndoors;
+            var cache = room?.Map?.GetComponent<FilthCache>();
+            if (cache != null && room.CellCount > 0)
+            {
+                var category = cache.Classify(room.Cells.First(), room);
+                if (category?.workGiver != null && category.workGiver.defName != "CleanFilth")
+                    return category.workGiver;
+            }
 
             //call the original getter in case someone else patched it
             return getter_CleanFilth();
