@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <Defs>
+
+  <!-- The home area column reuses the vanilla CleanFilth work giver (see Patches/WorkGivers.xml) for compatibility. -->
+
   <WorkGiverDef>
     <defName>CategorizedCleaning_CleanFilth_Sterile</defName>
-    <label>clean filth in sterile rooms</label>
-    <giverClass>PeteTimesSix.CategorizedCleaning.WorkGiver_CleanFilth_Sterile</giverClass>
+    <label>clean filth in clean rooms</label>
+    <giverClass>PeteTimesSix.CategorizedCleaning.WorkGiver_CleanFilth_Categorized</giverClass>
     <workType>CleaningSterile</workType>
     <verb>clean</verb>
     <gerund>cleaning</gerund>
@@ -12,12 +15,11 @@
       <li>Manipulation</li>
     </requiredCapacities>
   </WorkGiverDef>
-  
-  
+
   <WorkGiverDef>
     <defName>CategorizedCleaning_CleanFilth_Indoors</defName>
-    <label>clean filth indoors</label>
-    <giverClass>PeteTimesSix.CategorizedCleaning.WorkGiver_CleanFilth_Indoors</giverClass>
+    <label>clean filth in interior rooms</label>
+    <giverClass>PeteTimesSix.CategorizedCleaning.WorkGiver_CleanFilth_Categorized</giverClass>
     <workType>CleaningIndoors</workType>
     <verb>clean</verb>
     <gerund>cleaning</gerund>
@@ -26,21 +28,18 @@
       <li>Manipulation</li>
     </requiredCapacities>
   </WorkGiverDef>
-  
-  <!--
-	Modify vanilla def instead for compat. reasons
-	
+
   <WorkGiverDef>
-    <defName>CategorizedCleaning_CleanFilth_Outdoors</defName>
-    <label>clean filth outdoors</label>
-    <giverClass>PeteTimesSix.CategorizedCleaning.WorkGiver_CleanFilth_Outdoors</giverClass>
-    <workType>CleaningOutdoors</workType>
+    <defName>CategorizedCleaning_CleanFilth_Custom</defName>
+    <label>clean filth in the custom zone</label>
+    <giverClass>PeteTimesSix.CategorizedCleaning.WorkGiver_CleanFilth_Categorized</giverClass>
+    <workType>CleaningCustom</workType>
     <verb>clean</verb>
     <gerund>cleaning</gerund>
-    <priorityInType>4</priorityInType>
+    <priorityInType>6</priorityInType>
     <requiredCapacities>
       <li>Manipulation</li>
     </requiredCapacities>
   </WorkGiverDef>
-  -->
- </Defs>
+
+</Defs>

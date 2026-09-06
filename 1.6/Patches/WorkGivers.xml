@@ -9,7 +9,7 @@
 	<Operation Class="PatchOperationReplace">
 	  <xpath>Defs/WorkGiverDef[defName="CleanFilth"]/giverClass</xpath>
 	  <value>
-		<giverClass>PeteTimesSix.CategorizedCleaning.WorkGiver_CleanFilth_Outdoors</giverClass>
+		<giverClass>PeteTimesSix.CategorizedCleaning.WorkGiver_CleanFilth_Categorized</giverClass>
 	  </value>
 	</Operation>
 </Patch>
