@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+
+  <MainButtonDef>
+    <defName>CategorizedCleaning_Rooms</defName>
+    <label>cleaning</label>
+    <description>Every room on this map, sorted into cleaning columns. Move a room to change which cleaning work type covers it.</description>
+    <tabWindowClass>PeteTimesSix.CategorizedCleaning.MainTabWindow_CleaningRooms</tabWindowClass>
+    <order>22</order>
+    <validWithoutMap>false</validWithoutMap>
+  </MainButtonDef>
+
+</Defs>

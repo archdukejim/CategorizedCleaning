@@ -45,12 +45,14 @@
     <Compile Include="HarmonyPatches\Area_Patches.cs" />
     <Compile Include="HarmonyPatches\DebugDrawInjection.cs" />
     <Compile Include="HarmonyPatches\ListerFilthInHomeArea_Patches.cs" />
+    <Compile Include="HarmonyPatches\MapInterface_Update_Patches.cs" />
     <Compile Include="HarmonyPatches\Pawn_WorkSettings_ExposeData_Patches.cs" />
     <Compile Include="HarmonyPatches\Room_Patches.cs" />
     <Compile Include="ModCompat\CommonSense.cs" />
     <Compile Include="PatchOps\PatchOperationAddOrReplace.cs" />
     <Compile Include="PatchOps\SharedUtils.cs" />
     <Compile Include="Textures_Custom.cs" />
+    <Compile Include="UI\MainTabWindow_CleaningRooms.cs" />
     <Compile Include="WorkGivers\WorkGiver_CleanFilth_Categorized.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="CategorizedCleaning_Mod.cs" />
