@@ -23,13 +23,12 @@
 		<li>brrainz.harmony</li>
 	</loadAfter>
 	<description>
-Splits the cleaning work type into four:
+Splits the cleaning work type into three columns you can prioritize separately:
 
 One for clean rooms (kitchens, hospitals and laboratories)
 One for indoor cleaning
-One for a custom cleaning zone you paint yourself (Architect &gt; Zone)
-One for outdoor cleaning in the home area
+One for outdoor cleaning in the home area (body fluids and debris only, by default)
 
-Each can be individually prioritized. A new "Cleaning" tab at the bottom of the screen lists every room on the map in one lane per column, placed automatically by room type (bedrooms are named after their owners); move a room between lanes to pin it to a column. The mod settings decide which room types land in which lane by default, and you can also pin a room by selecting a colonist and right-clicking inside it.
+A "Cleaning" tab at the bottom of the screen lists every room and cleaning zone on the map in five lanes: clean rooms, interior, exterior, ignored, and custom. Rooms are placed automatically by type (bedrooms are named after their owners) and can be moved between lanes. Custom entries choose their own filth kinds, which work column cleans them, and extra upkeep such as cutting grass, clearing snow or hauling debris. Cleaning zones are drawn with Architect &gt; Zone. The mod settings hold the defaults: which room types land where, and which filth kinds each lane cleans.
 	</description>
 </ModMetaData>
